@@ -5,7 +5,8 @@ import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder } from 'luci
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
-import { FileItem, MergeProgress, mergeFiles } from '@/lib/pdfMerger';
+import OutputOptions from '@/components/OutputOptions';
+import { FileItem, MergeProgress, OutputFormat, mergeFiles } from '@/lib/pdfMerger';
 
 export default function Home() {
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -13,6 +14,7 @@ export default function Home() {
   const [mergedBlob, setMergedBlob] = useState<Blob | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>('pdf');
 
   const handleFilesAdded = useCallback((newFiles: FileItem[]) => {
     setFiles(prev => [...prev, ...newFiles]);
@@ -30,6 +32,25 @@ export default function Home() {
     setMergedBlob(null);
   }, []);
 
+  const handleToggleSelect = useCallback((id: string) => {
+    setFiles(prev => prev.map(f => 
+      f.id === id ? { ...f, selected: !f.selected } : f
+    ));
+    setMergedBlob(null);
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setFiles(prev => prev.map(f => 
+      f.type !== 'unsupported' ? { ...f, selected: true } : f
+    ));
+    setMergedBlob(null);
+  }, []);
+
+  const handleDeselectAll = useCallback(() => {
+    setFiles(prev => prev.map(f => ({ ...f, selected: false })));
+    setMergedBlob(null);
+  }, []);
+
   const handleClearAll = useCallback(() => {
     setFiles([]);
     setProgress(null);
@@ -38,10 +59,10 @@ export default function Home() {
   }, []);
 
   const handleMerge = useCallback(async () => {
-    const filesToMerge = files.filter(f => f.type !== 'unsupported');
+    const filesToMerge = files.filter(f => f.type !== 'unsupported' && f.selected);
     
     if (filesToMerge.length === 0) {
-      setError('No supported files to merge. Please add PDFs or images.');
+      setError('No files selected to merge. Please select at least one file.');
       return;
     }
 
@@ -74,7 +95,8 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }, [mergedBlob]);
 
-  const supportedFileCount = files.filter(f => f.type !== 'unsupported').length;
+  const selectedFileCount = files.filter(f => f.type !== 'unsupported' && f.selected).length;
+  const hasFiles = files.length > 0;
 
   return (
     <main className="relative z-10 min-h-screen py-12 px-4">
@@ -106,11 +128,24 @@ export default function Home() {
           />
 
           {/* File List */}
-          <FileList 
-            files={files} 
-            onRemove={handleRemoveFile}
-            onReorder={handleReorder}
-          />
+          {hasFiles && (
+            <FileList 
+              files={files} 
+              onRemove={handleRemoveFile}
+              onReorder={handleReorder}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={handleSelectAll}
+              onDeselectAll={handleDeselectAll}
+            />
+          )}
+
+          {/* Output Options */}
+          {hasFiles && (
+            <OutputOptions
+              format={outputFormat}
+              onFormatChange={setOutputFormat}
+            />
+          )}
 
           {/* Progress Bar */}
           {progress && <ProgressBar progress={progress} />}
@@ -123,16 +158,16 @@ export default function Home() {
           )}
 
           {/* Action Buttons */}
-          {files.length > 0 && (
+          {hasFiles && (
             <div className="flex flex-wrap gap-4 justify-center">
               {!mergedBlob ? (
                 <button
                   onClick={handleMerge}
-                  disabled={isMerging || supportedFileCount === 0}
+                  disabled={isMerging || selectedFileCount === 0}
                   className="btn-primary flex items-center gap-2"
                 >
                   <FileStack size={20} />
-                  {isMerging ? 'Merging...' : `Merge ${supportedFileCount} Files`}
+                  {isMerging ? 'Merging...' : `Merge ${selectedFileCount} File${selectedFileCount !== 1 ? 's' : ''}`}
                 </button>
               ) : (
                 <button
@@ -202,14 +237,14 @@ export default function Home() {
         <section className="mt-16 card p-8">
           <h2 className="text-2xl font-bold text-ink-800 mb-6 text-center">How to Use</h2>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-4 gap-6">
             <div className="text-center">
               <div className="w-10 h-10 rounded-full bg-accent-rust/10 text-accent-rust font-bold flex items-center justify-center mx-auto mb-3">
                 1
               </div>
               <h4 className="font-semibold text-ink-700 mb-2">Add Files</h4>
               <p className="text-sm text-ink-500">
-                Drag &amp; drop files or folders onto the drop zone, or click to browse.
+                Drag &amp; drop files or folders onto the drop zone.
               </p>
             </div>
 
@@ -217,9 +252,9 @@ export default function Home() {
               <div className="w-10 h-10 rounded-full bg-accent-gold/10 text-accent-gold font-bold flex items-center justify-center mx-auto mb-3">
                 2
               </div>
-              <h4 className="font-semibold text-ink-700 mb-2">Arrange Order</h4>
+              <h4 className="font-semibold text-ink-700 mb-2">Select Files</h4>
               <p className="text-sm text-ink-500">
-                Drag files to reorder them. Remove any you don&apos;t want to include.
+                Use checkboxes to choose which files to include.
               </p>
             </div>
 
@@ -227,9 +262,19 @@ export default function Home() {
               <div className="w-10 h-10 rounded-full bg-accent-teal/10 text-accent-teal font-bold flex items-center justify-center mx-auto mb-3">
                 3
               </div>
+              <h4 className="font-semibold text-ink-700 mb-2">Arrange Order</h4>
+              <p className="text-sm text-ink-500">
+                Drag files to reorder how they appear in the PDF.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-10 h-10 rounded-full bg-accent-navy/10 text-accent-navy font-bold flex items-center justify-center mx-auto mb-3">
+                4
+              </div>
               <h4 className="font-semibold text-ink-700 mb-2">Merge &amp; Download</h4>
               <p className="text-sm text-ink-500">
-                Click merge to combine everything into a single PDF, then download.
+                Click merge, then download your combined PDF.
               </p>
             </div>
           </div>
@@ -255,4 +300,3 @@ export default function Home() {
     </main>
   );
 }
-

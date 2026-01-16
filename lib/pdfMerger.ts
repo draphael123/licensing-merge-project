@@ -7,7 +7,10 @@ export interface FileItem {
   size: number;
   type: 'pdf' | 'image' | 'unsupported';
   pageCount?: number;
+  selected: boolean;
 }
+
+export type OutputFormat = 'pdf' | 'pdf-compressed' | 'pdf-high-quality';
 
 export interface MergeProgress {
   current: number;
@@ -228,6 +231,7 @@ export function createFileItem(file: File): FileItem {
     name: file.name,
     size: file.size,
     type: getFileType(file),
+    selected: true,
   };
 }
 

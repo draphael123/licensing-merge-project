@@ -8,6 +8,9 @@ interface FileListProps {
   files: FileItem[];
   onRemove: (id: string) => void;
   onReorder: (files: FileItem[]) => void;
+  onToggleSelect: (id: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -16,7 +19,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function FileList({ files, onRemove, onReorder }: FileListProps) {
+export default function FileList({ files, onRemove, onReorder, onToggleSelect, onSelectAll, onDeselectAll }: FileListProps) {
   const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -80,8 +83,10 @@ export default function FileList({ files, onRemove, onReorder }: FileListProps) 
     return null;
   }
 
-  const supportedCount = files.filter(f => f.type !== 'unsupported').length;
+  const supportedFiles = files.filter(f => f.type !== 'unsupported');
+  const selectedCount = supportedFiles.filter(f => f.selected).length;
   const unsupportedCount = files.filter(f => f.type === 'unsupported').length;
+  const allSelected = supportedFiles.length > 0 && supportedFiles.every(f => f.selected);
 
   return (
     <div className="card p-6">
@@ -91,7 +96,7 @@ export default function FileList({ files, onRemove, onReorder }: FileListProps) 
         </h3>
         <div className="flex gap-2 text-sm">
           <span className="px-3 py-1 bg-accent-rust/10 text-accent-rust rounded-full">
-            {supportedCount} ready
+            {selectedCount} selected
           </span>
           {unsupportedCount > 0 && (
             <span className="px-3 py-1 bg-ink-200 text-ink-600 rounded-full">
@@ -99,6 +104,24 @@ export default function FileList({ files, onRemove, onReorder }: FileListProps) 
             </span>
           )}
         </div>
+      </div>
+
+      {/* Select All / Deselect All buttons */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={onSelectAll}
+          disabled={allSelected}
+          className="px-3 py-1.5 text-xs font-medium text-accent-teal hover:bg-accent-teal/10 rounded-lg transition-colors disabled:opacity-50"
+        >
+          Select All
+        </button>
+        <button
+          onClick={onDeselectAll}
+          disabled={selectedCount === 0}
+          className="px-3 py-1.5 text-xs font-medium text-ink-500 hover:bg-ink-100 rounded-lg transition-colors disabled:opacity-50"
+        >
+          Deselect All
+        </button>
       </div>
 
       <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
@@ -111,11 +134,22 @@ export default function FileList({ files, onRemove, onReorder }: FileListProps) 
             onDragEnd={handleDragEnd}
             className={`file-item flex items-center gap-3 p-3 ${
               draggedId === file.id ? 'opacity-50' : ''
-            } ${file.type === 'unsupported' ? 'opacity-60' : ''}`}
+            } ${file.type === 'unsupported' ? 'opacity-60' : ''} ${
+              file.type !== 'unsupported' && !file.selected ? 'opacity-50 bg-ink-50' : ''
+            }`}
           >
             <button className="text-ink-300 hover:text-ink-500 cursor-grab active:cursor-grabbing">
               <GripVertical size={16} />
             </button>
+
+            {file.type !== 'unsupported' && (
+              <input
+                type="checkbox"
+                checked={file.selected}
+                onChange={() => onToggleSelect(file.id)}
+                className="w-4 h-4 rounded border-ink-300 text-accent-teal focus:ring-accent-teal cursor-pointer"
+              />
+            )}
 
             <span className="text-ink-400 text-sm w-6">{index + 1}</span>
 
