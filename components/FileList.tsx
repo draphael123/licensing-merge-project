@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { FileText, Image as ImageIcon, X, GripVertical, AlertCircle } from 'lucide-react';
+import { FileText, Image as ImageIcon, X, GripVertical, AlertCircle, RotateCw } from 'lucide-react';
 import { FileItem } from '@/lib/pdfMerger';
 
 interface FileListProps {
@@ -11,6 +11,7 @@ interface FileListProps {
   onToggleSelect: (id: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  onRotate: (id: string) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -19,7 +20,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function FileList({ files, onRemove, onReorder, onToggleSelect, onSelectAll, onDeselectAll }: FileListProps) {
+export default function FileList({ files, onRemove, onReorder, onToggleSelect, onSelectAll, onDeselectAll, onRotate }: FileListProps) {
   const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -175,8 +176,21 @@ export default function FileList({ files, onRemove, onReorder, onToggleSelect, o
               </p>
               <p className="text-xs text-ink-400">
                 {formatFileSize(file.size)} • {getTypeLabel(file.type)}
+                {file.rotation !== 0 && (
+                  <span className="ml-2 text-accent-teal">↻{file.rotation}°</span>
+                )}
               </p>
             </div>
+
+            {file.type !== 'unsupported' && (
+              <button
+                onClick={() => onRotate(file.id)}
+                className="p-1.5 text-ink-400 hover:text-accent-teal hover:bg-accent-teal/10 rounded-full transition-colors"
+                title={`Rotate (currently ${file.rotation}°)`}
+              >
+                <RotateCw size={16} />
+              </button>
+            )}
 
             <button
               onClick={() => onRemove(file.id)}

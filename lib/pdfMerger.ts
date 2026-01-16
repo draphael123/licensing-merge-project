@@ -9,6 +9,7 @@ export interface FileItem {
   type: 'pdf' | 'image' | 'text' | 'word' | 'unsupported';
   pageCount?: number;
   selected: boolean;
+  rotation: 0 | 90 | 180 | 270;
 }
 
 export type OutputFormat = 'pdf' | 'pdf-compressed' | 'pdf-high-quality';
@@ -795,6 +796,19 @@ export async function mergeFiles(
         results.skipped++;
       }
 
+      // Apply rotation if set
+      if (pagesAdded > 0 && item.rotation !== 0) {
+        const pages = mergedPdf.getPages();
+        for (let i = startPage - 1; i < startPage - 1 + pagesAdded; i++) {
+          const page = pages[i];
+          if (page) {
+            const currentRotation = page.getRotation().angle;
+            page.setRotation(degrees(currentRotation + item.rotation));
+          }
+        }
+        console.log(`  ↻ Applied ${item.rotation}° rotation`);
+      }
+
       // Track document info for table of contents
       if (pagesAdded > 0) {
         documentInfos.push({
@@ -939,6 +953,7 @@ export function createFileItem(file: File): FileItem {
     size: file.size,
     type: getFileType(file),
     selected: true,
+    rotation: 0,
   };
 }
 
@@ -979,4 +994,131 @@ export async function getFilesFromEntry(entry: FileSystemEntry): Promise<File[]>
   }
   
   return files;
+}
+
+/**
+ * Split a PDF into individual pages or chunks
+ */
+export interface SplitOptions {
+  mode: 'pages' | 'chunks' | 'ranges';
+  chunkSize?: number; // for 'chunks' mode
+  ranges?: string; // for 'ranges' mode, e.g., "1-3, 5, 7-10"
+}
+
+export interface SplitResult {
+  name: string;
+  blob: Blob;
+  pageCount: number;
+}
+
+export async function splitPdf(
+  file: File,
+  options: SplitOptions,
+  onProgress?: (current: number, total: number) => void
+): Promise<SplitResult[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const sourcePdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const totalPages = sourcePdf.getPageCount();
+  const results: SplitResult[] = [];
+  const baseName = file.name.replace(/\.pdf$/i, '');
+
+  if (options.mode === 'pages') {
+    // Split into individual pages
+    for (let i = 0; i < totalPages; i++) {
+      const newPdf = await PDFDocument.create();
+      const [page] = await newPdf.copyPages(sourcePdf, [i]);
+      newPdf.addPage(page);
+      
+      const pdfBytes = await newPdf.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      
+      results.push({
+        name: `${baseName}_page_${i + 1}.pdf`,
+        blob,
+        pageCount: 1,
+      });
+      
+      onProgress?.(i + 1, totalPages);
+    }
+  } else if (options.mode === 'chunks' && options.chunkSize) {
+    // Split into chunks of N pages
+    const chunkSize = options.chunkSize;
+    const numChunks = Math.ceil(totalPages / chunkSize);
+    
+    for (let chunk = 0; chunk < numChunks; chunk++) {
+      const newPdf = await PDFDocument.create();
+      const startPage = chunk * chunkSize;
+      const endPage = Math.min(startPage + chunkSize, totalPages);
+      const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+      
+      const pages = await newPdf.copyPages(sourcePdf, pageIndices);
+      pages.forEach(page => newPdf.addPage(page));
+      
+      const pdfBytes = await newPdf.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      
+      results.push({
+        name: `${baseName}_part_${chunk + 1}.pdf`,
+        blob,
+        pageCount: pages.length,
+      });
+      
+      onProgress?.(chunk + 1, numChunks);
+    }
+  } else if (options.mode === 'ranges' && options.ranges) {
+    // Split by custom ranges
+    const rangeStrings = options.ranges.split(',').map(s => s.trim());
+    
+    for (let rangeIdx = 0; rangeIdx < rangeStrings.length; rangeIdx++) {
+      const range = rangeStrings[rangeIdx];
+      const pageIndices: number[] = [];
+      
+      if (range.includes('-')) {
+        const [start, end] = range.split('-').map(n => parseInt(n.trim(), 10));
+        for (let i = start; i <= end && i <= totalPages; i++) {
+          if (i >= 1) pageIndices.push(i - 1); // Convert to 0-indexed
+        }
+      } else {
+        const pageNum = parseInt(range, 10);
+        if (pageNum >= 1 && pageNum <= totalPages) {
+          pageIndices.push(pageNum - 1);
+        }
+      }
+      
+      if (pageIndices.length > 0) {
+        const newPdf = await PDFDocument.create();
+        const pages = await newPdf.copyPages(sourcePdf, pageIndices);
+        pages.forEach(page => newPdf.addPage(page));
+        
+        const pdfBytes = await newPdf.save();
+        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+        
+        results.push({
+          name: `${baseName}_${range.replace('-', '_to_')}.pdf`,
+          blob,
+          pageCount: pages.length,
+        });
+      }
+      
+      onProgress?.(rangeIdx + 1, rangeStrings.length);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Get page count of a PDF file
+ */
+export async function getPdfInfo(file: File): Promise<{ pageCount: number; title?: string }> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+    return {
+      pageCount: pdf.getPageCount(),
+      title: pdf.getTitle(),
+    };
+  } catch {
+    return { pageCount: 0 };
+  }
 }

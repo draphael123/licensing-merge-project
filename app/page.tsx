@@ -8,6 +8,7 @@ import ProgressBar from '@/components/ProgressBar';
 import OutputOptions from '@/components/OutputOptions';
 import AdvancedOptions, { MergeOptions, defaultMergeOptions } from '@/components/AdvancedOptions';
 import FileSearch from '@/components/FileSearch';
+import SplitPdf from '@/components/SplitPdf';
 import { FileItem, MergeProgress, OutputFormat, mergeFiles } from '@/lib/pdfMerger';
 
 export default function Home() {
@@ -81,6 +82,17 @@ export default function Home() {
 
   const handleDeselectAll = useCallback(() => {
     setFiles(prev => prev.map(f => ({ ...f, selected: false })));
+    setMergedBlob(null);
+  }, []);
+
+  const handleRotate = useCallback((id: string) => {
+    setFiles(prev => prev.map(f => {
+      if (f.id === id) {
+        const newRotation = ((f.rotation + 90) % 360) as 0 | 90 | 180 | 270;
+        return { ...f, rotation: newRotation };
+      }
+      return f;
+    }));
     setMergedBlob(null);
   }, []);
 
@@ -199,6 +211,7 @@ export default function Home() {
               onToggleSelect={handleToggleSelect}
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
+              onRotate={handleRotate}
             />
           )}
 
@@ -278,6 +291,17 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Split PDF Tool */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">✂️ Split PDF Tool</h2>
+            <p className="text-white/70">Need to extract pages? Split your PDF into multiple files</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <SplitPdf />
+          </div>
+        </section>
 
         {/* Features */}
         <section className="mt-16 grid md:grid-cols-3 gap-6">
