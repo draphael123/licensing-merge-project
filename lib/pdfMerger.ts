@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import mammoth from 'mammoth';
 
 export interface FileItem {
@@ -19,6 +19,47 @@ export interface MergeProgress {
   phase: 'preparing' | 'processing' | 'compressing' | 'finalizing' | 'complete';
   message: string;
   currentFile?: string;
+}
+
+export interface MergeOptions {
+  addPageNumbers: boolean;
+  pageNumberPosition: 'bottom-center' | 'bottom-right' | 'bottom-left' | 'top-center' | 'top-right' | 'top-left';
+  pageNumberFormat: 'Page X of Y' | 'X / Y' | 'X' | '- X -';
+  addHeader: boolean;
+  headerText: string;
+  addFooter: boolean;
+  footerText: string;
+  addWatermark: boolean;
+  watermarkText: string;
+  watermarkOpacity: number;
+  addTableOfContents: boolean;
+  pdfTitle: string;
+  pdfAuthor: string;
+  pdfSubject: string;
+}
+
+export const defaultMergeOptions: MergeOptions = {
+  addPageNumbers: false,
+  pageNumberPosition: 'bottom-center',
+  pageNumberFormat: 'Page X of Y',
+  addHeader: false,
+  headerText: '',
+  addFooter: false,
+  footerText: '',
+  addWatermark: false,
+  watermarkText: 'CONFIDENTIAL',
+  watermarkOpacity: 0.15,
+  addTableOfContents: false,
+  pdfTitle: '',
+  pdfAuthor: '',
+  pdfSubject: '',
+};
+
+// Track document info for table of contents
+interface DocumentInfo {
+  name: string;
+  startPage: number;
+  pageCount: number;
 }
 
 // Quality settings for different output formats
@@ -448,21 +489,241 @@ async function recompressPdfImages(
 }
 
 /**
+ * Apply advanced options to merged PDF (page numbers, headers, footers, watermarks)
+ */
+async function applyAdvancedOptions(
+  pdfDoc: PDFDocument,
+  options: MergeOptions,
+  documentInfos: DocumentInfo[]
+): Promise<void> {
+  const pages = pdfDoc.getPages();
+  const totalPages = pages.length;
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Apply to each page
+  for (let i = 0; i < totalPages; i++) {
+    const page = pages[i];
+    const { width, height } = page.getSize();
+    const pageNum = i + 1;
+
+    // Add Page Numbers
+    if (options.addPageNumbers) {
+      let pageText = '';
+      switch (options.pageNumberFormat) {
+        case 'Page X of Y':
+          pageText = `Page ${pageNum} of ${totalPages}`;
+          break;
+        case 'X / Y':
+          pageText = `${pageNum} / ${totalPages}`;
+          break;
+        case 'X':
+          pageText = `${pageNum}`;
+          break;
+        case '- X -':
+          pageText = `- ${pageNum} -`;
+          break;
+      }
+
+      const textWidth = font.widthOfTextAtSize(pageText, 10);
+      let x = 0, y = 0;
+
+      switch (options.pageNumberPosition) {
+        case 'bottom-center':
+          x = (width - textWidth) / 2;
+          y = 30;
+          break;
+        case 'bottom-right':
+          x = width - textWidth - 40;
+          y = 30;
+          break;
+        case 'bottom-left':
+          x = 40;
+          y = 30;
+          break;
+        case 'top-center':
+          x = (width - textWidth) / 2;
+          y = height - 30;
+          break;
+        case 'top-right':
+          x = width - textWidth - 40;
+          y = height - 30;
+          break;
+        case 'top-left':
+          x = 40;
+          y = height - 30;
+          break;
+      }
+
+      page.drawText(pageText, {
+        x,
+        y,
+        size: 10,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+    }
+
+    // Add Header
+    if (options.addHeader && options.headerText) {
+      const headerWidth = font.widthOfTextAtSize(options.headerText, 10);
+      page.drawText(options.headerText, {
+        x: (width - headerWidth) / 2,
+        y: height - 25,
+        size: 10,
+        font,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+    }
+
+    // Add Footer
+    if (options.addFooter && options.footerText) {
+      const footerWidth = font.widthOfTextAtSize(options.footerText, 10);
+      page.drawText(options.footerText, {
+        x: (width - footerWidth) / 2,
+        y: 15,
+        size: 10,
+        font,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+    }
+
+    // Add Watermark
+    if (options.addWatermark && options.watermarkText) {
+      const watermarkSize = 60;
+      page.drawText(options.watermarkText, {
+        x: width / 2 - 150,
+        y: height / 2,
+        size: watermarkSize,
+        font: boldFont,
+        color: rgb(0.7, 0.7, 0.7),
+        opacity: options.watermarkOpacity,
+        rotate: degrees(-45),
+      });
+    }
+  }
+
+  // Set PDF Metadata
+  if (options.pdfTitle) {
+    pdfDoc.setTitle(options.pdfTitle);
+  }
+  if (options.pdfAuthor) {
+    pdfDoc.setAuthor(options.pdfAuthor);
+  }
+  if (options.pdfSubject) {
+    pdfDoc.setSubject(options.pdfSubject);
+  }
+}
+
+/**
+ * Create table of contents page
+ */
+async function createTableOfContents(
+  documentInfos: DocumentInfo[]
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const pageWidth = 612;
+  const pageHeight = 792;
+  const margin = 50;
+  const lineHeight = 18;
+
+  let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - margin;
+
+  // Title
+  currentPage.drawText('Table of Contents', {
+    x: margin,
+    y,
+    size: 24,
+    font: boldFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+  y -= 40;
+
+  // Draw line
+  currentPage.drawLine({
+    start: { x: margin, y },
+    end: { x: pageWidth - margin, y },
+    thickness: 1,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+  y -= 20;
+
+  // List documents
+  for (const doc of documentInfos) {
+    if (y < margin + 50) {
+      // New page
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
+    }
+
+    // Document name (truncate if too long)
+    let displayName = doc.name;
+    const maxNameWidth = pageWidth - margin * 2 - 100;
+    while (font.widthOfTextAtSize(displayName, 11) > maxNameWidth && displayName.length > 10) {
+      displayName = displayName.slice(0, -4) + '...';
+    }
+
+    currentPage.drawText(displayName, {
+      x: margin,
+      y,
+      size: 11,
+      font,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+
+    // Page number (right-aligned)
+    const pageText = `Page ${doc.startPage}`;
+    const pageTextWidth = font.widthOfTextAtSize(pageText, 11);
+    currentPage.drawText(pageText, {
+      x: pageWidth - margin - pageTextWidth,
+      y,
+      size: 11,
+      font,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+
+    // Dotted line between name and page
+    const dotsStart = margin + font.widthOfTextAtSize(displayName, 11) + 10;
+    const dotsEnd = pageWidth - margin - pageTextWidth - 10;
+    for (let dotX = dotsStart; dotX < dotsEnd; dotX += 6) {
+      currentPage.drawText('.', {
+        x: dotX,
+        y,
+        size: 11,
+        font,
+        color: rgb(0.6, 0.6, 0.6),
+      });
+    }
+
+    y -= lineHeight;
+  }
+
+  return pdfDoc.save();
+}
+
+/**
  * Merge multiple files (PDFs and images) into a single PDF
  */
 export async function mergeFiles(
   files: FileItem[],
   onProgress: (progress: MergeProgress) => void,
-  outputFormat: OutputFormat = 'pdf'
+  outputFormat: OutputFormat = 'pdf',
+  mergeOptions: MergeOptions = defaultMergeOptions
 ): Promise<Blob> {
   const total = files.length;
   let processed = 0;
   const settings = QUALITY_PRESETS[outputFormat];
+  const documentInfos: DocumentInfo[] = [];
   
   console.log('=== Starting Document Merge ===');
   console.log(`Total files: ${total}`);
   console.log(`Output format: ${outputFormat}`);
   console.log(`Quality settings:`, settings);
+  console.log(`Merge options:`, mergeOptions);
   
   onProgress({
     current: 0,
@@ -495,15 +756,20 @@ export async function mergeFiles(
     console.log(`${fileNum} ${item.name} (${item.type})`);
     
     try {
+      const startPage = mergedPdf.getPageCount() + 1;
+      let pagesAdded = 0;
+
       if (item.type === 'pdf') {
         const arrayBuffer = await item.file.arrayBuffer();
         const sourcePdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+        pagesAdded = sourcePdf.getPageCount();
         await recompressPdfImages(sourcePdf, mergedPdf, settings);
-        console.log(`  ✓ Added ${sourcePdf.getPageCount()} pages`);
+        console.log(`  ✓ Added ${pagesAdded} pages`);
         results.success++;
       } else if (item.type === 'image') {
         const pdfBytes = await imageToPdfBytes(item.file, settings);
         const imagePdf = await PDFDocument.load(pdfBytes);
+        pagesAdded = imagePdf.getPageCount();
         const pages = await mergedPdf.copyPages(imagePdf, imagePdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
         console.log(`  ✓ Converted image to PDF (quality: ${settings.imageQuality * 100}%)`);
@@ -511,20 +777,31 @@ export async function mergeFiles(
       } else if (item.type === 'text') {
         const pdfBytes = await textToPdfBytes(item.file);
         const textPdf = await PDFDocument.load(pdfBytes);
+        pagesAdded = textPdf.getPageCount();
         const pages = await mergedPdf.copyPages(textPdf, textPdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
-        console.log(`  ✓ Converted text to PDF (${textPdf.getPageCount()} pages)`);
+        console.log(`  ✓ Converted text to PDF (${pagesAdded} pages)`);
         results.success++;
       } else if (item.type === 'word') {
         const pdfBytes = await wordToPdfBytes(item.file);
         const wordPdf = await PDFDocument.load(pdfBytes);
+        pagesAdded = wordPdf.getPageCount();
         const pages = await mergedPdf.copyPages(wordPdf, wordPdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
-        console.log(`  ✓ Converted Word doc to PDF (${wordPdf.getPageCount()} pages)`);
+        console.log(`  ✓ Converted Word doc to PDF (${pagesAdded} pages)`);
         results.success++;
       } else {
         console.log(`  ⊘ Skipped (unsupported format)`);
         results.skipped++;
+      }
+
+      // Track document info for table of contents
+      if (pagesAdded > 0) {
+        documentInfos.push({
+          name: item.name,
+          startPage,
+          pageCount: pagesAdded,
+        });
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -537,6 +814,82 @@ export async function mergeFiles(
   if (mergedPdf.getPageCount() === 0) {
     throw new Error('No pages could be merged. Please check your files and try again.');
   }
+
+  // Add table of contents if enabled
+  if (mergeOptions.addTableOfContents && documentInfos.length > 0) {
+    onProgress({
+      current: total,
+      total,
+      phase: 'finalizing',
+      message: 'Creating table of contents...',
+    });
+
+    // Adjust page numbers to account for TOC pages
+    const tocBytes = await createTableOfContents(documentInfos);
+    const tocPdf = await PDFDocument.load(tocBytes);
+    const tocPageCount = tocPdf.getPageCount();
+
+    // Update document infos with offset
+    documentInfos.forEach(doc => {
+      doc.startPage += tocPageCount;
+    });
+
+    // Recreate TOC with updated page numbers
+    const updatedTocBytes = await createTableOfContents(documentInfos);
+    const updatedTocPdf = await PDFDocument.load(updatedTocBytes);
+    
+    // Create new PDF with TOC first
+    const finalPdf = await PDFDocument.create();
+    
+    // Copy TOC pages
+    const tocPages = await finalPdf.copyPages(updatedTocPdf, updatedTocPdf.getPageIndices());
+    tocPages.forEach(page => finalPdf.addPage(page));
+    
+    // Copy content pages
+    const contentPages = await finalPdf.copyPages(mergedPdf, mergedPdf.getPageIndices());
+    contentPages.forEach(page => finalPdf.addPage(page));
+    
+    // Apply advanced options to final PDF
+    await applyAdvancedOptions(finalPdf, mergeOptions, documentInfos);
+    
+    onProgress({
+      current: total,
+      total,
+      phase: 'compressing',
+      message: outputFormat === 'pdf-compressed' 
+        ? 'Compressing final document...' 
+        : 'Finalizing document...',
+    });
+    
+    console.log(`Saving merged PDF with ${outputFormat} settings...`);
+    
+    const pdfBytes = await finalPdf.save({
+      useObjectStreams: settings.useObjectStreams,
+    });
+
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+    const sizeMB = blob.size / (1024 * 1024);
+    
+    console.log('=== Merge Complete ===');
+    console.log(`Pages: ${finalPdf.getPageCount()} (including ${tocPageCount} TOC pages)`);
+    console.log(`Size: ${sizeMB.toFixed(2)} MB`);
+    console.log(`Success: ${results.success}, Skipped: ${results.skipped}, Errors: ${results.errors.length}`);
+    
+    const qualityLabel = outputFormat === 'pdf-compressed' ? ' (compressed)' : 
+                         outputFormat === 'pdf-high-quality' ? ' (high quality)' : '';
+    
+    onProgress({
+      current: total,
+      total,
+      phase: 'complete',
+      message: `Done! ${finalPdf.getPageCount()} pages, ${sizeMB.toFixed(2)} MB${qualityLabel}`,
+    });
+    
+    return blob;
+  }
+
+  // Apply advanced options without TOC
+  await applyAdvancedOptions(mergedPdf, mergeOptions, documentInfos);
   
   onProgress({
     current: total,

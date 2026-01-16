@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Check, X, Crown, Lock, Clock, CreditCard, Upload, Eye, Server, Wifi } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Moon, Sun, Check, X, Lock, Clock, CreditCard, Wifi } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
 import OutputOptions from '@/components/OutputOptions';
+import AdvancedOptions, { MergeOptions, defaultMergeOptions } from '@/components/AdvancedOptions';
+import FileSearch from '@/components/FileSearch';
 import { FileItem, MergeProgress, OutputFormat, mergeFiles } from '@/lib/pdfMerger';
 
 export default function Home() {
@@ -15,6 +17,37 @@ export default function Home() {
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('pdf');
+  const [mergeOptions, setMergeOptions] = useState<MergeOptions>(defaultMergeOptions);
+  const [darkMode, setDarkMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'pdf' | 'image' | 'text' | 'word'>('all');
+
+  // Detect duplicates
+  const duplicates = useMemo(() => {
+    const seen = new Map<string, number>();
+    files.forEach(f => {
+      const key = `${f.name}-${f.size}`;
+      seen.set(key, (seen.get(key) || 0) + 1);
+    });
+    return Array.from(seen.entries()).filter(([, count]) => count > 1).length;
+  }, [files]);
+
+  // Filter files for display
+  const filteredFiles = useMemo(() => {
+    return files.filter(f => {
+      const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filterType === 'all' || f.type === filterType;
+      return matchesSearch && matchesFilter;
+    });
+  }, [files, searchTerm, filterType]);
+
+  // Estimate file size
+  const estimatedSize = useMemo(() => {
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const multiplier = outputFormat === 'pdf-compressed' ? 0.5 : 
+                       outputFormat === 'pdf-high-quality' ? 1.2 : 0.8;
+    return (totalSize * multiplier) / (1024 * 1024);
+  }, [files, outputFormat]);
 
   const handleFilesAdded = useCallback((newFiles: FileItem[]) => {
     setFiles(prev => [...prev, ...newFiles]);
@@ -71,7 +104,7 @@ export default function Home() {
     setMergedBlob(null);
 
     try {
-      const blob = await mergeFiles(filesToMerge, setProgress, outputFormat);
+      const blob = await mergeFiles(filesToMerge, setProgress, outputFormat, mergeOptions);
       setMergedBlob(blob);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred during merge';
@@ -80,7 +113,7 @@ export default function Home() {
     } finally {
       setIsMerging(false);
     }
-  }, [files, outputFormat]);
+  }, [files, outputFormat, mergeOptions]);
 
   const handleDownload = useCallback(() => {
     if (!mergedBlob) return;
@@ -88,19 +121,31 @@ export default function Home() {
     const url = URL.createObjectURL(mergedBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `merged-document-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const fileName = mergeOptions.pdfTitle 
+      ? `${mergeOptions.pdfTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`
+      : `merged-document-${new Date().toISOString().slice(0, 10)}.pdf`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [mergedBlob]);
+  }, [mergedBlob, mergeOptions.pdfTitle]);
 
   const selectedFileCount = files.filter(f => f.type !== 'unsupported' && f.selected).length;
   const hasFiles = files.length > 0;
 
   return (
-    <main className="relative z-10 min-h-screen py-12 px-4">
+    <main className={`relative z-10 min-h-screen py-12 px-4 transition-colors ${darkMode ? 'dark-mode' : ''}`}>
       <div className="max-w-3xl mx-auto">
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className="fixed top-4 right-4 p-3 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors z-50"
+          aria-label="Toggle dark mode"
+        >
+          {darkMode ? <Sun size={20} className="text-yellow-300" /> : <Moon size={20} className="text-white" />}
+        </button>
+
         {/* Header */}
         <header className="text-center mb-12">
           <div className="badge mb-6">
@@ -130,10 +175,25 @@ export default function Home() {
             disabled={isMerging}
           />
 
+          {/* Search and Filter */}
+          {hasFiles && (
+            <div className="card p-4">
+              <FileSearch
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                filterType={filterType}
+                onFilterChange={setFilterType}
+                totalFiles={files.length}
+                filteredFiles={filteredFiles.length}
+                duplicateCount={duplicates}
+              />
+            </div>
+          )}
+
           {/* File List */}
           {hasFiles && (
             <FileList 
-              files={files} 
+              files={filteredFiles} 
               onRemove={handleRemoveFile}
               onReorder={handleReorder}
               onToggleSelect={handleToggleSelect}
@@ -142,11 +202,27 @@ export default function Home() {
             />
           )}
 
+          {/* Estimated Size */}
+          {hasFiles && files.length > 0 && (
+            <div className="card p-4 flex items-center justify-between">
+              <span className="text-sm text-gray-600">Estimated output size:</span>
+              <span className="font-bold text-gray-800">~{estimatedSize.toFixed(1)} MB</span>
+            </div>
+          )}
+
           {/* Output Options */}
           {hasFiles && (
             <OutputOptions
               format={outputFormat}
               onFormatChange={setOutputFormat}
+            />
+          )}
+
+          {/* Advanced Options */}
+          {hasFiles && (
+            <AdvancedOptions
+              options={mergeOptions}
+              onChange={setMergeOptions}
             />
           )}
 
@@ -211,7 +287,7 @@ export default function Home() {
             </div>
             <h3 className="font-bold text-gray-800 mb-2 text-lg">Drop Folders</h3>
             <p className="text-sm text-gray-600">
-              Drop entire folders and we&apos;ll find all PDFs and images inside, including subfolders.
+              Drop entire folders and we&apos;ll find all PDFs, images, and documents inside.
             </p>
           </div>
 
@@ -242,7 +318,6 @@ export default function Home() {
             <span className="rainbow-text">Why Choose Us?</span>
           </h2>
           
-          {/* Comparison Table */}
           <div className="card p-6 mb-8 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -283,55 +358,18 @@ export default function Home() {
                   <td className="py-3 px-2 text-center text-gray-500">10-100 MB limit</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50/50">
-                  <td className="py-3 px-2 font-medium text-gray-700">⚡ Speed</td>
+                  <td className="py-3 px-2 font-medium text-gray-700">📑 Advanced Options</td>
                   <td className="py-3 px-2 text-center">
                     <span className="inline-flex items-center gap-1 text-green-600 font-bold">
-                      <Check size={16} /> Instant (local)
+                      <Check size={16} /> All included free
                     </span>
                   </td>
-                  <td className="py-3 px-2 text-center text-gray-500">Wait for upload/download</td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 px-2 font-medium text-gray-700">📝 Registration</td>
-                  <td className="py-3 px-2 text-center">
-                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
-                      <Check size={16} /> Not required
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-center text-gray-500">Email required</td>
-                </tr>
-                <tr className="border-b border-gray-100 bg-purple-50/50">
-                  <td className="py-3 px-2 font-medium text-gray-700">📂 Folder Support</td>
-                  <td className="py-3 px-2 text-center">
-                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
-                      <Check size={16} /> Full recursive scan
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-center text-gray-500">Single files only</td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 px-2 font-medium text-gray-700">🖼️ Image to PDF</td>
-                  <td className="py-3 px-2 text-center">
-                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
-                      <Check size={16} /> Included
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-center text-gray-500">Separate tool needed</td>
-                </tr>
-                <tr className="bg-purple-50/50">
-                  <td className="py-3 px-2 font-medium text-gray-700">🗜️ Compression Options</td>
-                  <td className="py-3 px-2 text-center">
-                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
-                      <Check size={16} /> 3 quality levels
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-center text-gray-500">Limited or paid</td>
+                  <td className="py-3 px-2 text-center text-gray-500">Premium features</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Benefit Cards */}
           <div className="grid md:grid-cols-2 gap-6">
             <div className="card p-6">
               <div className="flex items-start gap-4">
@@ -341,9 +379,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-bold text-gray-800 mb-2">Your Data Stays Private</h3>
                   <p className="text-sm text-gray-600">
-                    Unlike cloud-based tools, your files <strong>never leave your computer</strong>. 
-                    No uploads, no servers, no data retention. Perfect for sensitive documents like 
-                    medical records, legal files, or financial statements.
+                    Your files <strong>never leave your computer</strong>. Perfect for sensitive documents.
                   </p>
                 </div>
               </div>
@@ -357,9 +393,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-bold text-gray-800 mb-2">Works Offline</h3>
                   <p className="text-sm text-gray-600">
-                    Once loaded, the tool works <strong>without internet</strong>. 
-                    Great for working on planes, in areas with poor connectivity, 
-                    or when you just want guaranteed privacy.
+                    Once loaded, works <strong>without internet</strong>. Great for any situation.
                   </p>
                 </div>
               </div>
@@ -373,9 +407,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-bold text-gray-800 mb-2">No Waiting</h3>
                   <p className="text-sm text-gray-600">
-                    Cloud tools make you wait for uploads and downloads. 
-                    We process everything <strong>instantly on your device</strong>. 
-                    Merge 100+ files in seconds, not minutes.
+                    Process everything <strong>instantly on your device</strong>. Merge 100+ files in seconds.
                   </p>
                 </div>
               </div>
@@ -389,9 +421,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-bold text-gray-800 mb-2">Truly Free Forever</h3>
                   <p className="text-sm text-gray-600">
-                    No &quot;free tier&quot; limits, no credit card required, no upsells. 
-                    <strong> Unlimited merges, unlimited file size</strong>. 
-                    We don&apos;t have servers to pay for!
+                    <strong>Unlimited merges, unlimited file size</strong>. No credit card needed.
                   </p>
                 </div>
               </div>
@@ -416,17 +446,17 @@ export default function Home() {
 
             <div className="text-center">
               <div className="step-number step-2 mx-auto mb-3">2</div>
-              <h4 className="font-bold text-gray-800 mb-2">Select Files</h4>
+              <h4 className="font-bold text-gray-800 mb-2">Select &amp; Arrange</h4>
               <p className="text-sm text-gray-600">
-                Use checkboxes to choose which files to include.
+                Choose files and drag to reorder.
               </p>
             </div>
 
             <div className="text-center">
               <div className="step-number step-3 mx-auto mb-3">3</div>
-              <h4 className="font-bold text-gray-800 mb-2">Arrange Order</h4>
+              <h4 className="font-bold text-gray-800 mb-2">Set Options</h4>
               <p className="text-sm text-gray-600">
-                Drag files to reorder how they appear in the PDF.
+                Add page numbers, headers, watermarks.
               </p>
             </div>
 
@@ -434,7 +464,7 @@ export default function Home() {
               <div className="step-number step-4 mx-auto mb-3">4</div>
               <h4 className="font-bold text-gray-800 mb-2">Download</h4>
               <p className="text-sm text-gray-600">
-                Click merge, then download your combined PDF.
+                Click merge and download your PDF.
               </p>
             </div>
           </div>
@@ -459,11 +489,9 @@ export default function Home() {
                   <span className="format-badge format-image">PNG</span>
                   <span className="format-badge format-image">GIF</span>
                   <span className="format-badge format-image">WebP</span>
-                  <span className="format-badge format-image">BMP</span>
+                  <span className="format-badge format-image">HEIC</span>
                   <span className="format-badge format-image">TIFF</span>
                   <span className="format-badge format-image">SVG</span>
-                  <span className="format-badge format-image">HEIC</span>
-                  <span className="format-badge format-image">AVIF</span>
                 </div>
               </div>
               
@@ -474,9 +502,7 @@ export default function Home() {
                   <span className="format-badge format-text">MD</span>
                   <span className="format-badge format-text">CSV</span>
                   <span className="format-badge format-text">JSON</span>
-                  <span className="format-badge format-text">XML</span>
                   <span className="format-badge format-text">HTML</span>
-                  <span className="format-badge format-text">LOG</span>
                 </div>
               </div>
             </div>
