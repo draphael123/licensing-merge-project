@@ -1,0 +1,151 @@
+'use client';
+
+import React from 'react';
+import { FileText, Image as ImageIcon, X, GripVertical, AlertCircle } from 'lucide-react';
+import { FileItem } from '@/lib/pdfMerger';
+
+interface FileListProps {
+  files: FileItem[];
+  onRemove: (id: string) => void;
+  onReorder: (files: FileItem[]) => void;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default function FileList({ files, onRemove, onReorder }: FileListProps) {
+  const [draggedId, setDraggedId] = React.useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) return;
+
+    const draggedIndex = files.findIndex(f => f.id === draggedId);
+    const targetIndex = files.findIndex(f => f.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newFiles = [...files];
+    const [removed] = newFiles.splice(draggedIndex, 1);
+    newFiles.splice(targetIndex, 0, removed);
+    onReorder(newFiles);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText size={20} />;
+      case 'image':
+        return <ImageIcon size={20} />;
+      default:
+        return <AlertCircle size={20} />;
+    }
+  };
+
+  const getIconClass = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return 'icon-circle icon-pdf';
+      case 'image':
+        return 'icon-circle icon-image';
+      default:
+        return 'icon-circle icon-other';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return 'PDF';
+      case 'image':
+        return 'Image → PDF';
+      default:
+        return 'Skipped';
+    }
+  };
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  const supportedCount = files.filter(f => f.type !== 'unsupported').length;
+  const unsupportedCount = files.filter(f => f.type === 'unsupported').length;
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-ink-800">
+          Files to Merge
+        </h3>
+        <div className="flex gap-2 text-sm">
+          <span className="px-3 py-1 bg-accent-rust/10 text-accent-rust rounded-full">
+            {supportedCount} ready
+          </span>
+          {unsupportedCount > 0 && (
+            <span className="px-3 py-1 bg-ink-200 text-ink-600 rounded-full">
+              {unsupportedCount} skipped
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+        {files.map((file, index) => (
+          <div
+            key={file.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, file.id)}
+            onDragOver={(e) => handleDragOver(e, file.id)}
+            onDragEnd={handleDragEnd}
+            className={`file-item flex items-center gap-3 p-3 ${
+              draggedId === file.id ? 'opacity-50' : ''
+            } ${file.type === 'unsupported' ? 'opacity-60' : ''}`}
+          >
+            <button className="text-ink-300 hover:text-ink-500 cursor-grab active:cursor-grabbing">
+              <GripVertical size={16} />
+            </button>
+
+            <span className="text-ink-400 text-sm w-6">{index + 1}</span>
+
+            <div className={getIconClass(file.type)}>
+              {getIcon(file.type)}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink-700 truncate">
+                {file.name}
+              </p>
+              <p className="text-xs text-ink-400">
+                {formatFileSize(file.size)} • {getTypeLabel(file.type)}
+              </p>
+            </div>
+
+            <button
+              onClick={() => onRemove(file.id)}
+              className="p-1.5 text-ink-400 hover:text-accent-rust hover:bg-accent-rust/10 rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-ink-400 mt-4 text-center">
+        Drag to reorder • Files merge in this order
+      </p>
+    </div>
+  );
+}
+
