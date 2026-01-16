@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper } from 'lucide-react';
+import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Check, X, Crown, Lock, Clock, CreditCard, Upload, Eye, Server, Wifi } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
@@ -233,6 +233,169 @@ export default function Home() {
             <p className="text-sm text-gray-600">
               Your files never leave your computer. We don&apos;t store or transmit anything.
             </p>
+          </div>
+        </section>
+
+        {/* Why Choose Us */}
+        <section className="mt-16">
+          <h2 className="text-3xl font-bold text-center mb-8">
+            <span className="rainbow-text">Why Choose Us?</span>
+          </h2>
+          
+          {/* Comparison Table */}
+          <div className="card p-6 mb-8 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-3 px-2 font-bold text-gray-700">Feature</th>
+                  <th className="text-center py-3 px-2">
+                    <span className="rainbow-text font-bold">Us</span>
+                  </th>
+                  <th className="text-center py-3 px-2 text-gray-500">Other Tools</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-100">
+                  <td className="py-3 px-2 font-medium text-gray-700">💰 Price</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> 100% Free
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">$5-20/month</td>
+                </tr>
+                <tr className="border-b border-gray-100 bg-purple-50/50">
+                  <td className="py-3 px-2 font-medium text-gray-700">🔒 Privacy</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Files never uploaded
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Files sent to servers</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-3 px-2 font-medium text-gray-700">📁 File Size Limit</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Unlimited
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">10-100 MB limit</td>
+                </tr>
+                <tr className="border-b border-gray-100 bg-purple-50/50">
+                  <td className="py-3 px-2 font-medium text-gray-700">⚡ Speed</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Instant (local)
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Wait for upload/download</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-3 px-2 font-medium text-gray-700">📝 Registration</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Not required
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Email required</td>
+                </tr>
+                <tr className="border-b border-gray-100 bg-purple-50/50">
+                  <td className="py-3 px-2 font-medium text-gray-700">📂 Folder Support</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Full recursive scan
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Single files only</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-3 px-2 font-medium text-gray-700">🖼️ Image to PDF</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> Included
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Separate tool needed</td>
+                </tr>
+                <tr className="bg-purple-50/50">
+                  <td className="py-3 px-2 font-medium text-gray-700">🗜️ Compression Options</td>
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center gap-1 text-green-600 font-bold">
+                      <Check size={16} /> 3 quality levels
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-center text-gray-500">Limited or paid</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Benefit Cards */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 text-white">
+                  <Lock size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">Your Data Stays Private</h3>
+                  <p className="text-sm text-gray-600">
+                    Unlike cloud-based tools, your files <strong>never leave your computer</strong>. 
+                    No uploads, no servers, no data retention. Perfect for sensitive documents like 
+                    medical records, legal files, or financial statements.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
+                  <Wifi size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">Works Offline</h3>
+                  <p className="text-sm text-gray-600">
+                    Once loaded, the tool works <strong>without internet</strong>. 
+                    Great for working on planes, in areas with poor connectivity, 
+                    or when you just want guaranteed privacy.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 text-white">
+                  <Clock size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">No Waiting</h3>
+                  <p className="text-sm text-gray-600">
+                    Cloud tools make you wait for uploads and downloads. 
+                    We process everything <strong>instantly on your device</strong>. 
+                    Merge 100+ files in seconds, not minutes.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+                  <CreditCard size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">Truly Free Forever</h3>
+                  <p className="text-sm text-gray-600">
+                    No &quot;free tier&quot; limits, no credit card required, no upsells. 
+                    <strong> Unlimited merges, unlimited file size</strong>. 
+                    We don&apos;t have servers to pay for!
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
