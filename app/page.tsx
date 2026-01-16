@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder } from 'lucide-react';
+import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
@@ -103,19 +103,22 @@ export default function Home() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <header className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 rounded-full text-sm text-ink-600 mb-6">
-            <Sparkles size={16} className="text-accent-gold" />
-            Free &amp; runs entirely in your browser
+          <div className="badge mb-6">
+            <Sparkles size={18} className="text-yellow-500" />
+            <span>Free &amp; runs entirely in your browser</span>
+            <PartyPopper size={18} className="text-pink-500" />
           </div>
           
-          <h1 className="text-5xl md:text-6xl font-bold text-ink-900 mb-4 tracking-tight">
-            Document Merger
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-4 tracking-tight">
+            <span className="rainbow-text">Document</span>
+            <br />
+            <span className="text-white glow">Merger</span>
           </h1>
           
-          <p className="text-xl text-ink-600 max-w-lg mx-auto leading-relaxed">
-            Combine PDFs and images into a single document.
+          <p className="text-xl text-white/90 max-w-lg mx-auto leading-relaxed font-medium">
+            Combine PDFs and images into a single document ✨
             <br />
-            <span className="text-ink-500">Drop folders, merge files, download instantly.</span>
+            <span className="text-white/70">Drop folders, merge files, download instantly!</span>
           </p>
         </header>
 
@@ -152,8 +155,8 @@ export default function Home() {
 
           {/* Error Message */}
           {error && (
-            <div className="card p-4 border-accent-rust/30 bg-accent-rust/5">
-              <p className="text-accent-rust text-sm">{error}</p>
+            <div className="card p-4 border-red-300 bg-red-50">
+              <p className="text-red-600 text-sm font-medium">⚠️ {error}</p>
             </div>
           )}
 
@@ -182,7 +185,7 @@ export default function Home() {
               <button
                 onClick={handleClearAll}
                 disabled={isMerging}
-                className="px-6 py-3 text-ink-600 hover:text-accent-rust hover:bg-accent-rust/10 rounded-xl transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition-all flex items-center gap-2 font-semibold backdrop-blur-sm"
               >
                 <Trash2 size={18} />
                 Clear All
@@ -192,9 +195,9 @@ export default function Home() {
 
           {/* Merged Result Info */}
           {mergedBlob && (
-            <div className="card p-6 text-center bg-accent-teal/5 border-accent-teal/20">
-              <p className="text-accent-teal font-medium">
-                ✓ Merged successfully! {(mergedBlob.size / (1024 * 1024)).toFixed(2)} MB
+            <div className="card p-6 text-center bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <p className="text-green-600 font-bold text-lg">
+                🎉 Merged successfully! {(mergedBlob.size / (1024 * 1024)).toFixed(2)} MB
               </p>
             </div>
           )}
@@ -203,31 +206,31 @@ export default function Home() {
         {/* Features */}
         <section className="mt-16 grid md:grid-cols-3 gap-6">
           <div className="card p-6 text-center">
-            <div className="icon-circle icon-pdf mx-auto mb-4">
+            <div className="icon-circle icon-pdf mx-auto mb-4 float">
               <Folder size={24} />
             </div>
-            <h3 className="font-semibold text-ink-800 mb-2">Drop Folders</h3>
-            <p className="text-sm text-ink-500">
+            <h3 className="font-bold text-gray-800 mb-2 text-lg">Drop Folders</h3>
+            <p className="text-sm text-gray-600">
               Drop entire folders and we&apos;ll find all PDFs and images inside, including subfolders.
             </p>
           </div>
 
           <div className="card p-6 text-center">
-            <div className="icon-circle icon-image mx-auto mb-4">
+            <div className="icon-circle icon-image mx-auto mb-4 float stagger-2">
               <Zap size={24} />
             </div>
-            <h3 className="font-semibold text-ink-800 mb-2">Fast &amp; Local</h3>
-            <p className="text-sm text-ink-500">
+            <h3 className="font-bold text-gray-800 mb-2 text-lg">Fast &amp; Local</h3>
+            <p className="text-sm text-gray-600">
               Everything runs in your browser. No uploads, no waiting, no file size limits.
             </p>
           </div>
 
           <div className="card p-6 text-center">
-            <div className="icon-circle icon-other mx-auto mb-4">
+            <div className="icon-circle icon-other mx-auto mb-4 float stagger-3">
               <Shield size={24} />
             </div>
-            <h3 className="font-semibold text-ink-800 mb-2">100% Private</h3>
-            <p className="text-sm text-ink-500">
+            <h3 className="font-bold text-gray-800 mb-2 text-lg">100% Private</h3>
+            <p className="text-sm text-gray-600">
               Your files never leave your computer. We don&apos;t store or transmit anything.
             </p>
           </div>
@@ -235,66 +238,62 @@ export default function Home() {
 
         {/* Instructions */}
         <section className="mt-16 card p-8">
-          <h2 className="text-2xl font-bold text-ink-800 mb-6 text-center">How to Use</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+            <span className="rainbow-text">How to Use</span>
+          </h2>
           
           <div className="grid md:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-accent-rust/10 text-accent-rust font-bold flex items-center justify-center mx-auto mb-3">
-                1
-              </div>
-              <h4 className="font-semibold text-ink-700 mb-2">Add Files</h4>
-              <p className="text-sm text-ink-500">
+              <div className="step-number step-1 mx-auto mb-3">1</div>
+              <h4 className="font-bold text-gray-800 mb-2">Add Files</h4>
+              <p className="text-sm text-gray-600">
                 Drag &amp; drop files or folders onto the drop zone.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-accent-gold/10 text-accent-gold font-bold flex items-center justify-center mx-auto mb-3">
-                2
-              </div>
-              <h4 className="font-semibold text-ink-700 mb-2">Select Files</h4>
-              <p className="text-sm text-ink-500">
+              <div className="step-number step-2 mx-auto mb-3">2</div>
+              <h4 className="font-bold text-gray-800 mb-2">Select Files</h4>
+              <p className="text-sm text-gray-600">
                 Use checkboxes to choose which files to include.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-accent-teal/10 text-accent-teal font-bold flex items-center justify-center mx-auto mb-3">
-                3
-              </div>
-              <h4 className="font-semibold text-ink-700 mb-2">Arrange Order</h4>
-              <p className="text-sm text-ink-500">
+              <div className="step-number step-3 mx-auto mb-3">3</div>
+              <h4 className="font-bold text-gray-800 mb-2">Arrange Order</h4>
+              <p className="text-sm text-gray-600">
                 Drag files to reorder how they appear in the PDF.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-accent-navy/10 text-accent-navy font-bold flex items-center justify-center mx-auto mb-3">
-                4
-              </div>
-              <h4 className="font-semibold text-ink-700 mb-2">Merge &amp; Download</h4>
-              <p className="text-sm text-ink-500">
+              <div className="step-number step-4 mx-auto mb-3">4</div>
+              <h4 className="font-bold text-gray-800 mb-2">Download</h4>
+              <p className="text-sm text-gray-600">
                 Click merge, then download your combined PDF.
               </p>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-ink-100">
-            <h4 className="font-semibold text-ink-700 mb-3 text-center">Supported Formats</h4>
-            <div className="flex flex-wrap justify-center gap-2">
-              <span className="px-3 py-1.5 bg-accent-rust/10 text-accent-rust text-sm rounded-full">PDF</span>
-              <span className="px-3 py-1.5 bg-accent-teal/10 text-accent-teal text-sm rounded-full">JPG / JPEG</span>
-              <span className="px-3 py-1.5 bg-accent-teal/10 text-accent-teal text-sm rounded-full">PNG</span>
-              <span className="px-3 py-1.5 bg-accent-teal/10 text-accent-teal text-sm rounded-full">GIF</span>
-              <span className="px-3 py-1.5 bg-accent-teal/10 text-accent-teal text-sm rounded-full">WebP</span>
-              <span className="px-3 py-1.5 bg-accent-teal/10 text-accent-teal text-sm rounded-full">BMP</span>
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h4 className="font-bold text-gray-800 mb-4 text-center">Supported Formats</h4>
+            <div className="flex flex-wrap justify-center gap-3">
+              <span className="format-badge format-pdf">PDF</span>
+              <span className="format-badge format-image">JPG</span>
+              <span className="format-badge format-image">PNG</span>
+              <span className="format-badge format-image">GIF</span>
+              <span className="format-badge format-image">WebP</span>
+              <span className="format-badge format-image">BMP</span>
             </div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="mt-16 text-center text-sm text-ink-400">
-          <p>Built with care • Your documents stay on your device</p>
+        <footer className="mt-16 text-center">
+          <p className="text-white/80 font-medium">
+            Built with 💜 • Your documents stay on your device
+          </p>
         </footer>
       </div>
     </main>

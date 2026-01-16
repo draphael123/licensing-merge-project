@@ -98,35 +98,35 @@ export default function FileUploader({ onFilesAdded, disabled }: FileUploaderPro
 
       <div className="flex flex-col items-center gap-6">
         <div className="flex gap-4">
-          <div className={`icon-circle icon-pdf float ${isDragging ? 'scale-110' : ''} transition-transform`}>
+          <div className={`icon-circle icon-pdf float ${isDragging ? 'scale-125' : ''} transition-transform`}>
             <Upload size={24} />
           </div>
-          <div className={`icon-circle icon-image float stagger-2 ${isDragging ? 'scale-110' : ''} transition-transform`}>
+          <div className={`icon-circle icon-image float stagger-2 ${isDragging ? 'scale-125' : ''} transition-transform`}>
             <FolderOpen size={24} />
           </div>
         </div>
 
         {scanningStatus ? (
-          <div className="text-accent-teal font-medium animate-pulse">
-            {scanningStatus}
+          <div className="text-purple-600 font-bold animate-pulse text-lg">
+            ✨ {scanningStatus}
           </div>
         ) : (
           <>
             <div>
-              <h3 className="text-xl font-semibold text-ink-800 mb-2">
-                {isDragging ? 'Drop your files here!' : 'Drop files or folders here'}
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                {isDragging ? '🎯 Drop your files here!' : '📁 Drop files or folders here'}
               </h3>
-              <p className="text-ink-500">
+              <p className="text-gray-600 font-medium">
                 or click to browse • PDFs and images supported
               </p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 text-xs text-ink-400">
-              <span className="px-3 py-1 bg-white/50 rounded-full">PDF</span>
-              <span className="px-3 py-1 bg-white/50 rounded-full">JPG</span>
-              <span className="px-3 py-1 bg-white/50 rounded-full">PNG</span>
-              <span className="px-3 py-1 bg-white/50 rounded-full">GIF</span>
-              <span className="px-3 py-1 bg-white/50 rounded-full">WebP</span>
+            <div className="flex flex-wrap justify-center gap-2">
+              <span className="format-badge format-pdf text-xs">PDF</span>
+              <span className="format-badge format-image text-xs">JPG</span>
+              <span className="format-badge format-image text-xs">PNG</span>
+              <span className="format-badge format-image text-xs">GIF</span>
+              <span className="format-badge format-image text-xs">WebP</span>
             </div>
           </>
         )}
