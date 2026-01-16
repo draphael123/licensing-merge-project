@@ -14,7 +14,8 @@
     "react-dom": "^18.2.0",
     "pdf-lib": "^1.17.1",
     "framer-motion": "^10.16.16",
-    "lucide-react": "^0.303.0"
+    "lucide-react": "^0.303.0",
+    "mammoth": "^1.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

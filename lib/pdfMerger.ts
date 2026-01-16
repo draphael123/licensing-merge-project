@@ -1,11 +1,12 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import mammoth from 'mammoth';
 
 export interface FileItem {
   id: string;
   file: File;
   name: string;
   size: number;
-  type: 'pdf' | 'image' | 'text' | 'unsupported';
+  type: 'pdf' | 'image' | 'text' | 'word' | 'unsupported';
   pageCount?: number;
   selected: boolean;
 }
@@ -65,10 +66,17 @@ const IMAGE_MIMES = [
 const TEXT_EXTENSIONS = ['.txt', '.md', '.csv', '.json', '.xml', '.html', '.css', '.js', '.ts', '.log'];
 const TEXT_MIMES = ['text/plain', 'text/markdown', 'text/csv', 'application/json', 'text/xml', 'text/html'];
 
+// Supported Word document formats
+const WORD_EXTENSIONS = ['.docx', '.doc'];
+const WORD_MIMES = [
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword'
+];
+
 /**
  * Determine file type from file object
  */
-export function getFileType(file: File): 'pdf' | 'image' | 'text' | 'unsupported' {
+export function getFileType(file: File): 'pdf' | 'image' | 'text' | 'word' | 'unsupported' {
   const ext = '.' + file.name.split('.').pop()?.toLowerCase();
   const mime = file.type.toLowerCase();
   
@@ -78,6 +86,10 @@ export function getFileType(file: File): 'pdf' | 'image' | 'text' | 'unsupported
   
   if (IMAGE_EXTENSIONS.includes(ext) || IMAGE_MIMES.some(m => mime.includes(m))) {
     return 'image';
+  }
+  
+  if (WORD_EXTENSIONS.includes(ext) || WORD_MIMES.some(m => mime.includes(m))) {
+    return 'word';
   }
   
   if (TEXT_EXTENSIONS.includes(ext) || TEXT_MIMES.some(m => mime.includes(m))) {
@@ -299,6 +311,128 @@ async function textToPdfBytes(file: File): Promise<Uint8Array> {
 }
 
 /**
+ * Convert a Word document to PDF bytes using mammoth
+ */
+async function wordToPdfBytes(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async () => {
+      try {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        
+        // Extract text from Word document
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        const text = result.value;
+        
+        // Create PDF from extracted text
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        
+        const fontSize = 11;
+        const lineHeight = fontSize * 1.5;
+        const margin = 50;
+        const pageWidth = 612;
+        const pageHeight = 792;
+        const maxWidth = pageWidth - (margin * 2);
+        const maxLinesPerPage = Math.floor((pageHeight - (margin * 2)) / lineHeight);
+        
+        // Split text into lines and wrap
+        const paragraphs = text.split('\n');
+        const wrappedLines: string[] = [];
+        
+        for (const para of paragraphs) {
+          if (para.trim().length === 0) {
+            wrappedLines.push('');
+            continue;
+          }
+          
+          const words = para.split(' ');
+          let currentLine = '';
+          
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const width = font.widthOfTextAtSize(testLine, fontSize);
+            
+            if (width > maxWidth && currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+          
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+          }
+        }
+        
+        // Create pages
+        let lineIndex = 0;
+        while (lineIndex < wrappedLines.length || pdfDoc.getPageCount() === 0) {
+          const page = pdfDoc.addPage([pageWidth, pageHeight]);
+          let y = pageHeight - margin;
+          
+          // Add filename header on first page
+          if (lineIndex === 0) {
+            page.drawText(file.name, {
+              x: margin,
+              y: y,
+              size: 14,
+              font: boldFont,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+            y -= lineHeight * 2;
+          }
+          
+          // Add lines to page
+          const linesAvailable = maxLinesPerPage - (lineIndex === 0 ? 3 : 0);
+          
+          for (let i = 0; i < linesAvailable && lineIndex < wrappedLines.length; i++) {
+            const lineText = wrappedLines[lineIndex] || '';
+            if (lineText) {
+              page.drawText(lineText, {
+                x: margin,
+                y: y,
+                size: fontSize,
+                font,
+                color: rgb(0.1, 0.1, 0.1),
+              });
+            }
+            y -= lineHeight;
+            lineIndex++;
+          }
+          
+          // Break if no more lines
+          if (lineIndex >= wrappedLines.length) break;
+        }
+        
+        // Ensure at least one page
+        if (pdfDoc.getPageCount() === 0) {
+          const page = pdfDoc.addPage([pageWidth, pageHeight]);
+          page.drawText(`${file.name} (empty document)`, {
+            x: margin,
+            y: pageHeight - margin,
+            size: 12,
+            font,
+            color: rgb(0.4, 0.4, 0.4),
+          });
+        }
+        
+        const pdfBytes = await pdfDoc.save();
+        resolve(pdfBytes);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read Word document'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
  * Re-compress images within an existing PDF (for compression mode)
  */
 async function recompressPdfImages(
@@ -380,6 +514,13 @@ export async function mergeFiles(
         const pages = await mergedPdf.copyPages(textPdf, textPdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
         console.log(`  ✓ Converted text to PDF (${textPdf.getPageCount()} pages)`);
+        results.success++;
+      } else if (item.type === 'word') {
+        const pdfBytes = await wordToPdfBytes(item.file);
+        const wordPdf = await PDFDocument.load(pdfBytes);
+        const pages = await mergedPdf.copyPages(wordPdf, wordPdf.getPageIndices());
+        pages.forEach(page => mergedPdf.addPage(page));
+        console.log(`  ✓ Converted Word doc to PDF (${wordPdf.getPageCount()} pages)`);
         results.success++;
       } else {
         console.log(`  ⊘ Skipped (unsupported format)`);

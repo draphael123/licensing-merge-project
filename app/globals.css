@@ -300,6 +300,12 @@ h1, h2, h3, h4 {
   box-shadow: 0 8px 20px rgba(0, 201, 255, 0.4);
 }
 
+.icon-word {
+  background: linear-gradient(135deg, #2b5797 0%, #1e3a5f 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(43, 87, 151, 0.4);
+}
+
 /* Feature cards */
 .feature-card {
   background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
@@ -432,4 +438,9 @@ input[type="checkbox"]:hover {
 .format-text {
   background: linear-gradient(135deg, #00c9ff 0%, #92fe9d 100%);
   color: #1a1a2e;
+}
+
+.format-word {
+  background: linear-gradient(135deg, #2b5797 0%, #1e3a5f 100%);
+  color: white;
 }

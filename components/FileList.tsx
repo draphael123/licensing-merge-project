@@ -54,6 +54,8 @@ export default function FileList({ files, onRemove, onReorder, onToggleSelect, o
         return <ImageIcon size={20} />;
       case 'text':
         return <FileText size={20} />;
+      case 'word':
+        return <FileText size={20} />;
       default:
         return <AlertCircle size={20} />;
     }
@@ -67,6 +69,8 @@ export default function FileList({ files, onRemove, onReorder, onToggleSelect, o
         return 'icon-circle icon-image';
       case 'text':
         return 'icon-circle icon-text';
+      case 'word':
+        return 'icon-circle icon-word';
       default:
         return 'icon-circle icon-other';
     }
@@ -80,6 +84,8 @@ export default function FileList({ files, onRemove, onReorder, onToggleSelect, o
         return 'Image → PDF';
       case 'text':
         return 'Text → PDF';
+      case 'word':
+        return 'Word → PDF';
       default:
         return 'Skipped';
     }

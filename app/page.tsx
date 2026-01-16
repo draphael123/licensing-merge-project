@@ -447,6 +447,8 @@ export default function Home() {
                 <p className="text-xs text-gray-500 text-center mb-2">Documents</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   <span className="format-badge format-pdf">PDF</span>
+                  <span className="format-badge format-word">DOCX</span>
+                  <span className="format-badge format-word">DOC</span>
                 </div>
               </div>
               
