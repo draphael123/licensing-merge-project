@@ -1,11 +1,11 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 export interface FileItem {
   id: string;
   file: File;
   name: string;
   size: number;
-  type: 'pdf' | 'image' | 'unsupported';
+  type: 'pdf' | 'image' | 'text' | 'unsupported';
   pageCount?: number;
   selected: boolean;
 }
@@ -49,14 +49,26 @@ const QUALITY_PRESETS: Record<OutputFormat, QualitySettings> = {
   },
 };
 
-// Supported image formats
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+// Supported image formats (expanded)
+const IMAGE_EXTENSIONS = [
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp',
+  '.tiff', '.tif', '.svg', '.ico', '.avif', '.jfif',
+  '.heic', '.heif', // iPhone photos
+];
+const IMAGE_MIMES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+  'image/tiff', 'image/svg+xml', 'image/x-icon', 'image/avif',
+  'image/heic', 'image/heif',
+];
+
+// Supported text formats
+const TEXT_EXTENSIONS = ['.txt', '.md', '.csv', '.json', '.xml', '.html', '.css', '.js', '.ts', '.log'];
+const TEXT_MIMES = ['text/plain', 'text/markdown', 'text/csv', 'application/json', 'text/xml', 'text/html'];
 
 /**
  * Determine file type from file object
  */
-export function getFileType(file: File): 'pdf' | 'image' | 'unsupported' {
+export function getFileType(file: File): 'pdf' | 'image' | 'text' | 'unsupported' {
   const ext = '.' + file.name.split('.').pop()?.toLowerCase();
   const mime = file.type.toLowerCase();
   
@@ -66,6 +78,10 @@ export function getFileType(file: File): 'pdf' | 'image' | 'unsupported' {
   
   if (IMAGE_EXTENSIONS.includes(ext) || IMAGE_MIMES.some(m => mime.includes(m))) {
     return 'image';
+  }
+  
+  if (TEXT_EXTENSIONS.includes(ext) || TEXT_MIMES.some(m => mime.includes(m))) {
+    return 'text';
   }
   
   return 'unsupported';
@@ -172,6 +188,117 @@ async function imageToPdfBytes(file: File, settings: QualitySettings): Promise<U
 }
 
 /**
+ * Convert a text file to PDF bytes
+ */
+async function textToPdfBytes(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async () => {
+      try {
+        const text = reader.result as string;
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Courier);
+        
+        const fontSize = 10;
+        const lineHeight = fontSize * 1.4;
+        const margin = 50;
+        const pageWidth = 612; // Letter size
+        const pageHeight = 792;
+        const maxWidth = pageWidth - (margin * 2);
+        const maxLinesPerPage = Math.floor((pageHeight - (margin * 2)) / lineHeight);
+        
+        // Split text into lines
+        const lines = text.split('\n');
+        const wrappedLines: string[] = [];
+        
+        // Word wrap each line
+        for (const line of lines) {
+          if (line.length === 0) {
+            wrappedLines.push('');
+            continue;
+          }
+          
+          const words = line.split(' ');
+          let currentLine = '';
+          
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const width = font.widthOfTextAtSize(testLine, fontSize);
+            
+            if (width > maxWidth && currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+          
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+          }
+        }
+        
+        // Create pages
+        let lineIndex = 0;
+        while (lineIndex < wrappedLines.length) {
+          const page = pdfDoc.addPage([pageWidth, pageHeight]);
+          let y = pageHeight - margin;
+          
+          // Add filename header on first page
+          if (lineIndex === 0) {
+            page.drawText(`File: ${file.name}`, {
+              x: margin,
+              y: y,
+              size: 12,
+              font,
+              color: rgb(0.4, 0.4, 0.4),
+            });
+            y -= lineHeight * 2;
+          }
+          
+          // Add lines to page
+          const linesForThisPage = Math.min(maxLinesPerPage - (lineIndex === 0 ? 2 : 0), wrappedLines.length - lineIndex);
+          
+          for (let i = 0; i < linesForThisPage; i++) {
+            const lineText = wrappedLines[lineIndex] || '';
+            page.drawText(lineText, {
+              x: margin,
+              y: y,
+              size: fontSize,
+              font,
+              color: rgb(0.1, 0.1, 0.1),
+            });
+            y -= lineHeight;
+            lineIndex++;
+          }
+        }
+        
+        // Ensure at least one page
+        if (pdfDoc.getPageCount() === 0) {
+          const page = pdfDoc.addPage([pageWidth, pageHeight]);
+          page.drawText(`File: ${file.name} (empty)`, {
+            x: margin,
+            y: pageHeight - margin,
+            size: 12,
+            font,
+            color: rgb(0.4, 0.4, 0.4),
+          });
+        }
+        
+        const pdfBytes = await pdfDoc.save();
+        resolve(pdfBytes);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read text file'));
+    reader.readAsText(file);
+  });
+}
+
+/**
  * Re-compress images within an existing PDF (for compression mode)
  */
 async function recompressPdfImages(
@@ -246,6 +373,13 @@ export async function mergeFiles(
         const pages = await mergedPdf.copyPages(imagePdf, imagePdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
         console.log(`  ✓ Converted image to PDF (quality: ${settings.imageQuality * 100}%)`);
+        results.success++;
+      } else if (item.type === 'text') {
+        const pdfBytes = await textToPdfBytes(item.file);
+        const textPdf = await PDFDocument.load(pdfBytes);
+        const pages = await mergedPdf.copyPages(textPdf, textPdf.getPageIndices());
+        pages.forEach(page => mergedPdf.addPage(page));
+        console.log(`  ✓ Converted text to PDF (${textPdf.getPageCount()} pages)`);
         results.success++;
       } else {
         console.log(`  ⊘ Skipped (unsupported format)`);

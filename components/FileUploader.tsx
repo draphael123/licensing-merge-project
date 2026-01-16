@@ -90,7 +90,7 @@ export default function FileUploader({ onFilesAdded, disabled }: FileUploaderPro
         id="file-input"
         type="file"
         multiple
-        accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
+        accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.svg,.ico,.avif,.heic,.heif,.txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.log"
         onChange={handleFileInput}
         className="hidden"
         disabled={disabled}
@@ -125,8 +125,9 @@ export default function FileUploader({ onFilesAdded, disabled }: FileUploaderPro
               <span className="format-badge format-pdf text-xs">PDF</span>
               <span className="format-badge format-image text-xs">JPG</span>
               <span className="format-badge format-image text-xs">PNG</span>
-              <span className="format-badge format-image text-xs">GIF</span>
-              <span className="format-badge format-image text-xs">WebP</span>
+              <span className="format-badge format-image text-xs">HEIC</span>
+              <span className="format-badge format-text text-xs">TXT</span>
+              <span className="text-xs text-gray-500">+more</span>
             </div>
           </>
         )}

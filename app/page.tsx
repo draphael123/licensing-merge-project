@@ -441,13 +441,42 @@ export default function Home() {
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <h4 className="font-bold text-gray-800 mb-4 text-center">Supported Formats</h4>
-            <div className="flex flex-wrap justify-center gap-3">
-              <span className="format-badge format-pdf">PDF</span>
-              <span className="format-badge format-image">JPG</span>
-              <span className="format-badge format-image">PNG</span>
-              <span className="format-badge format-image">GIF</span>
-              <span className="format-badge format-image">WebP</span>
-              <span className="format-badge format-image">BMP</span>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-500 text-center mb-2">Documents</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="format-badge format-pdf">PDF</span>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-gray-500 text-center mb-2">Images</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="format-badge format-image">JPG</span>
+                  <span className="format-badge format-image">PNG</span>
+                  <span className="format-badge format-image">GIF</span>
+                  <span className="format-badge format-image">WebP</span>
+                  <span className="format-badge format-image">BMP</span>
+                  <span className="format-badge format-image">TIFF</span>
+                  <span className="format-badge format-image">SVG</span>
+                  <span className="format-badge format-image">HEIC</span>
+                  <span className="format-badge format-image">AVIF</span>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-gray-500 text-center mb-2">Text Files</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="format-badge format-text">TXT</span>
+                  <span className="format-badge format-text">MD</span>
+                  <span className="format-badge format-text">CSV</span>
+                  <span className="format-badge format-text">JSON</span>
+                  <span className="format-badge format-text">XML</span>
+                  <span className="format-badge format-text">HTML</span>
+                  <span className="format-badge format-text">LOG</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
