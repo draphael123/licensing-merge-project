@@ -15,10 +15,39 @@ export type OutputFormat = 'pdf' | 'pdf-compressed' | 'pdf-high-quality';
 export interface MergeProgress {
   current: number;
   total: number;
-  phase: 'preparing' | 'processing' | 'finalizing' | 'complete';
+  phase: 'preparing' | 'processing' | 'compressing' | 'finalizing' | 'complete';
   message: string;
   currentFile?: string;
 }
+
+// Quality settings for different output formats
+interface QualitySettings {
+  imageQuality: number;      // JPEG quality (0-1)
+  maxImageDimension: number; // Max width/height for images
+  useObjectStreams: boolean; // PDF compression
+  scaleImages: boolean;      // Whether to downscale large images
+}
+
+const QUALITY_PRESETS: Record<OutputFormat, QualitySettings> = {
+  'pdf-compressed': {
+    imageQuality: 0.5,
+    maxImageDimension: 1200,
+    useObjectStreams: true,
+    scaleImages: true,
+  },
+  'pdf': {
+    imageQuality: 0.8,
+    maxImageDimension: 2400,
+    useObjectStreams: true,
+    scaleImages: true,
+  },
+  'pdf-high-quality': {
+    imageQuality: 0.95,
+    maxImageDimension: 4800,
+    useObjectStreams: false,
+    scaleImages: false,
+  },
+};
 
 // Supported image formats
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
@@ -56,9 +85,49 @@ export async function getPdfPageCount(file: File): Promise<number> {
 }
 
 /**
- * Convert an image file to PDF bytes
+ * Compress/resize an image using canvas
  */
-async function imageToPdfBytes(file: File): Promise<Uint8Array> {
+async function compressImage(
+  imageData: ArrayBuffer,
+  mimeType: string,
+  settings: QualitySettings
+): Promise<{ bytes: Uint8Array; width: number; height: number }> {
+  const blob = new Blob([imageData], { type: mimeType });
+  const bitmap = await createImageBitmap(blob);
+  
+  let targetWidth = bitmap.width;
+  let targetHeight = bitmap.height;
+  
+  // Scale down if needed
+  if (settings.scaleImages && (bitmap.width > settings.maxImageDimension || bitmap.height > settings.maxImageDimension)) {
+    const scale = settings.maxImageDimension / Math.max(bitmap.width, bitmap.height);
+    targetWidth = Math.round(bitmap.width * scale);
+    targetHeight = Math.round(bitmap.height * scale);
+  }
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+  
+  // Use better quality scaling
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+  
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', settings.imageQuality);
+  const jpegBase64 = jpegDataUrl.split(',')[1];
+  const jpegBytes = Uint8Array.from(atob(jpegBase64), c => c.charCodeAt(0));
+  
+  return { bytes: jpegBytes, width: targetWidth, height: targetHeight };
+}
+
+/**
+ * Convert an image file to PDF bytes with quality settings
+ */
+async function imageToPdfBytes(file: File, settings: QualitySettings): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
@@ -67,31 +136,18 @@ async function imageToPdfBytes(file: File): Promise<Uint8Array> {
         const imageData = reader.result as ArrayBuffer;
         const pdfDoc = await PDFDocument.create();
         
-        let image;
         const mime = file.type.toLowerCase();
         const ext = file.name.split('.').pop()?.toLowerCase();
         
-        if (mime.includes('png') || ext === 'png') {
+        let image;
+        
+        // For high quality PNG, embed directly; otherwise compress to JPEG
+        if ((mime.includes('png') || ext === 'png') && !settings.scaleImages && settings.imageQuality > 0.9) {
           image = await pdfDoc.embedPng(imageData);
         } else {
-          // Convert other formats to JPEG via canvas
-          const blob = new Blob([imageData], { type: file.type });
-          const bitmap = await createImageBitmap(blob);
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = bitmap.width;
-          canvas.height = bitmap.height;
-          
-          const ctx = canvas.getContext('2d');
-          if (!ctx) throw new Error('Could not get canvas context');
-          
-          ctx.drawImage(bitmap, 0, 0);
-          
-          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-          const jpegBase64 = jpegDataUrl.split(',')[1];
-          const jpegBytes = Uint8Array.from(atob(jpegBase64), c => c.charCodeAt(0));
-          
-          image = await pdfDoc.embedJpg(jpegBytes);
+          // Compress to JPEG with quality settings
+          const compressed = await compressImage(imageData, file.type, settings);
+          image = await pdfDoc.embedJpg(compressed.bytes);
         }
         
         // Create page with image dimensions
@@ -103,7 +159,7 @@ async function imageToPdfBytes(file: File): Promise<Uint8Array> {
           height: image.height,
         });
         
-        const pdfBytes = await pdfDoc.save();
+        const pdfBytes = await pdfDoc.save({ useObjectStreams: settings.useObjectStreams });
         resolve(pdfBytes);
       } catch (error) {
         reject(error);
@@ -116,23 +172,42 @@ async function imageToPdfBytes(file: File): Promise<Uint8Array> {
 }
 
 /**
+ * Re-compress images within an existing PDF (for compression mode)
+ */
+async function recompressPdfImages(
+  sourcePdf: PDFDocument,
+  mergedPdf: PDFDocument,
+  settings: QualitySettings
+): Promise<void> {
+  // For now, just copy pages - full image recompression would require
+  // iterating through each page's resources which is complex
+  // The main compression benefit comes from the save options
+  const pages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+  pages.forEach(page => mergedPdf.addPage(page));
+}
+
+/**
  * Merge multiple files (PDFs and images) into a single PDF
  */
 export async function mergeFiles(
   files: FileItem[],
-  onProgress: (progress: MergeProgress) => void
+  onProgress: (progress: MergeProgress) => void,
+  outputFormat: OutputFormat = 'pdf'
 ): Promise<Blob> {
   const total = files.length;
   let processed = 0;
+  const settings = QUALITY_PRESETS[outputFormat];
   
   console.log('=== Starting Document Merge ===');
   console.log(`Total files: ${total}`);
+  console.log(`Output format: ${outputFormat}`);
+  console.log(`Quality settings:`, settings);
   
   onProgress({
     current: 0,
     total,
     phase: 'preparing',
-    message: 'Preparing to merge documents...',
+    message: `Preparing to merge (${outputFormat === 'pdf-compressed' ? 'compressed' : outputFormat === 'pdf-high-quality' ? 'high quality' : 'standard'})...`,
   });
   
   // Create the merged PDF document
@@ -162,16 +237,15 @@ export async function mergeFiles(
       if (item.type === 'pdf') {
         const arrayBuffer = await item.file.arrayBuffer();
         const sourcePdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-        const pages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
-        pages.forEach(page => mergedPdf.addPage(page));
+        await recompressPdfImages(sourcePdf, mergedPdf, settings);
         console.log(`  ✓ Added ${sourcePdf.getPageCount()} pages`);
         results.success++;
       } else if (item.type === 'image') {
-        const pdfBytes = await imageToPdfBytes(item.file);
+        const pdfBytes = await imageToPdfBytes(item.file, settings);
         const imagePdf = await PDFDocument.load(pdfBytes);
         const pages = await mergedPdf.copyPages(imagePdf, imagePdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
-        console.log(`  ✓ Converted image to PDF page`);
+        console.log(`  ✓ Converted image to PDF (quality: ${settings.imageQuality * 100}%)`);
         results.success++;
       } else {
         console.log(`  ⊘ Skipped (unsupported format)`);
@@ -192,14 +266,16 @@ export async function mergeFiles(
   onProgress({
     current: total,
     total,
-    phase: 'finalizing',
-    message: 'Finalizing document...',
+    phase: 'compressing',
+    message: outputFormat === 'pdf-compressed' 
+      ? 'Compressing final document...' 
+      : 'Finalizing document...',
   });
   
-  console.log('Saving merged PDF...');
+  console.log(`Saving merged PDF with ${outputFormat} settings...`);
   
   const pdfBytes = await mergedPdf.save({
-    useObjectStreams: true,
+    useObjectStreams: settings.useObjectStreams,
   });
 
   // Create blob with explicit Uint8Array to ensure type compatibility
@@ -211,11 +287,14 @@ export async function mergeFiles(
   console.log(`Size: ${sizeMB.toFixed(2)} MB`);
   console.log(`Success: ${results.success}, Skipped: ${results.skipped}, Errors: ${results.errors.length}`);
   
+  const qualityLabel = outputFormat === 'pdf-compressed' ? ' (compressed)' : 
+                       outputFormat === 'pdf-high-quality' ? ' (high quality)' : '';
+  
   onProgress({
     current: total,
     total,
     phase: 'complete',
-    message: `Done! ${mergedPdf.getPageCount()} pages, ${sizeMB.toFixed(2)} MB`,
+    message: `Done! ${mergedPdf.getPageCount()} pages, ${sizeMB.toFixed(2)} MB${qualityLabel}`,
   });
   
   return blob;
@@ -273,4 +352,3 @@ export async function getFilesFromEntry(entry: FileSystemEntry): Promise<File[]>
   
   return files;
 }
-

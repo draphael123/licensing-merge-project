@@ -9,23 +9,26 @@ interface OutputOptionsProps {
   onFormatChange: (format: OutputFormat) => void;
 }
 
-const formatOptions: { value: OutputFormat; label: string; description: string; icon: React.ReactNode }[] = [
-  {
-    value: 'pdf',
-    label: 'Standard PDF',
-    description: 'Balanced quality and file size',
-    icon: <FileOutput size={18} />,
-  },
+const formatOptions: { value: OutputFormat; label: string; description: string; details: string; icon: React.ReactNode }[] = [
   {
     value: 'pdf-compressed',
-    label: 'Compressed PDF',
-    description: 'Smaller file size, good for sharing',
+    label: 'Compressed (Smallest)',
+    description: 'Minimizes file size for easy sharing',
+    details: 'Images: 50% quality, max 1200px • Best for email/web',
     icon: <Minimize2 size={18} />,
   },
   {
+    value: 'pdf',
+    label: 'Standard (Balanced)',
+    description: 'Good quality with reasonable file size',
+    details: 'Images: 80% quality, max 2400px • Recommended',
+    icon: <FileOutput size={18} />,
+  },
+  {
     value: 'pdf-high-quality',
-    label: 'High Quality PDF',
-    description: 'Best quality, larger file size',
+    label: 'High Quality (Largest)',
+    description: 'Maximum quality, preserves original resolution',
+    details: 'Images: 95% quality, original size • Best for printing',
     icon: <Maximize2 size={18} />,
   },
 ];
@@ -65,6 +68,7 @@ export default function OutputOptions({ format, onFormatChange }: OutputOptionsP
                 {option.label}
               </p>
               <p className="text-xs text-ink-500">{option.description}</p>
+              <p className="text-xs text-ink-400 mt-0.5">{option.details}</p>
             </div>
             
             {format === option.value && (

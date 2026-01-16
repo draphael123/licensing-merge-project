@@ -71,7 +71,7 @@ export default function Home() {
     setMergedBlob(null);
 
     try {
-      const blob = await mergeFiles(filesToMerge, setProgress);
+      const blob = await mergeFiles(filesToMerge, setProgress, outputFormat);
       setMergedBlob(blob);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred during merge';
@@ -80,7 +80,7 @@ export default function Home() {
     } finally {
       setIsMerging(false);
     }
-  }, [files]);
+  }, [files, outputFormat]);
 
   const handleDownload = useCallback(() => {
     if (!mergedBlob) return;
