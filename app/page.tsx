@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Check, Lock, Clock, CreditCard, Wifi, Undo2, Redo2 } from 'lucide-react';
+import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Check, Lock, Clock, CreditCard, Wifi, Undo2, Redo2, Eye } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
@@ -13,6 +13,13 @@ import ThemeSelector from '@/components/ThemeSelector';
 import StatsDashboard from '@/components/StatsDashboard';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import BatchOperations from '@/components/BatchOperations';
+import PdfExport from '@/components/PdfExport';
+import PdfEditor from '@/components/PdfEditor';
+import PdfCompare from '@/components/PdfCompare';
+import LanguageSelector from '@/components/LanguageSelector';
+import { FeedbackButton } from '@/components/Feedback';
+import Templates, { Template } from '@/components/Templates';
+import PageSelector from '@/components/PageSelector';
 import { FileItem, MergeProgress, OutputFormat, mergeFiles } from '@/lib/pdfMerger';
 import { useAppStore, themes } from '@/lib/store';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
@@ -28,6 +35,7 @@ export default function Home() {
   const [mergeOptions, setMergeOptions] = useState<MergeOptions>(defaultMergeOptions);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'pdf' | 'image' | 'text' | 'word'>('all');
+  const [showPageSelector, setShowPageSelector] = useState(false);
   
   // Store state
   const { 
@@ -162,6 +170,18 @@ export default function Home() {
     setError(null);
   }, []);
 
+  const handleApplyTemplate = useCallback((template: Template) => {
+    setOutputFormat(template.outputFormat);
+    setMergeOptions(template.options);
+  }, []);
+
+  const handlePageSelection = useCallback((selection: { fileId: string; pages: number[]; rotations: number[] }[]) => {
+    // Update file selection based on page selector results
+    // This is a simplified version - full implementation would track individual pages
+    console.log('Page selection:', selection);
+    setShowPageSelector(false);
+  }, []);
+
   const handleMerge = useCallback(async () => {
     const filesToMerge = files.filter(f => f.type !== 'unsupported' && f.selected);
     
@@ -243,6 +263,7 @@ export default function Home() {
       <div className="max-w-3xl mx-auto">
         {/* Fixed Controls */}
         <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
+          <LanguageSelector />
           <KeyboardShortcuts />
           <ThemeSelector />
         </div>
@@ -323,6 +344,33 @@ export default function Home() {
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
               onRotate={handleRotate}
+            />
+          )}
+
+          {/* Page Selector Button */}
+          {hasFiles && files.some(f => f.type === 'pdf') && (
+            <div className="card p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-800">Preview & Select Pages</p>
+                <p className="text-sm text-gray-500">Choose specific pages from your PDFs</p>
+              </div>
+              <button
+                onClick={() => setShowPageSelector(true)}
+                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+              >
+                <Eye size={18} />
+                Preview Pages
+              </button>
+            </div>
+          )}
+
+          {/* Templates */}
+          {hasFiles && (
+            <Templates
+              currentOptions={mergeOptions}
+              currentFormat={outputFormat}
+              onApply={handleApplyTemplate}
+              onSave={(name) => console.log('Save template:', name)}
             />
           )}
 
@@ -433,6 +481,39 @@ export default function Home() {
           </div>
           <div className="max-w-xl mx-auto">
             <StatsDashboard />
+          </div>
+        </section>
+
+        {/* PDF Export Tool */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">📤 Export PDF</h2>
+            <p className="text-white/70">Convert PDF to images or extract text</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <PdfExport />
+          </div>
+        </section>
+
+        {/* PDF Editor Tool */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">✏️ PDF Editor</h2>
+            <p className="text-white/70">Delete, rotate, and rearrange pages</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <PdfEditor />
+          </div>
+        </section>
+
+        {/* PDF Compare Tool */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">🔍 Compare PDFs</h2>
+            <p className="text-white/70">View two PDFs side by side</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <PdfCompare />
           </div>
         </section>
 
@@ -673,6 +754,17 @@ export default function Home() {
           </p>
         </footer>
       </div>
+
+      {/* Page Selector Modal */}
+      <PageSelector
+        files={files.filter(f => f.type === 'pdf' || f.type === 'image')}
+        isOpen={showPageSelector}
+        onClose={() => setShowPageSelector(false)}
+        onConfirm={handlePageSelection}
+      />
+
+      {/* Feedback Button */}
+      <FeedbackButton />
     </main>
   );
 }
