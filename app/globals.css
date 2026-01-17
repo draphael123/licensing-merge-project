@@ -499,3 +499,236 @@ input[type="checkbox"]:hover {
 .dark-mode .bg-purple-50\/50 {
   background: rgba(100,100,200,0.1) !important;
 }
+
+/* Theme CSS Variables */
+.theme-rainbow {
+  --theme-gradient: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 50%, #ffe66d 100%);
+  --theme-primary: #ff6b6b;
+  --theme-secondary: #4ecdc4;
+  --theme-accent: #ffe66d;
+}
+
+.theme-ocean {
+  --theme-gradient: linear-gradient(135deg, #023e8a 0%, #0077b6 50%, #90e0ef 100%);
+  --theme-primary: #0077b6;
+  --theme-secondary: #00b4d8;
+  --theme-accent: #90e0ef;
+}
+
+.theme-sunset {
+  --theme-gradient: linear-gradient(135deg, #f72585 0%, #7209b7 50%, #3a0ca3 100%);
+  --theme-primary: #f72585;
+  --theme-secondary: #7209b7;
+  --theme-accent: #f8961e;
+}
+
+.theme-forest {
+  --theme-gradient: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #52b788 100%);
+  --theme-primary: #2d6a4f;
+  --theme-secondary: #40916c;
+  --theme-accent: #95d5b2;
+}
+
+.theme-lavender {
+  --theme-gradient: linear-gradient(135deg, #5a189a 0%, #7b2cbf 50%, #c77dff 100%);
+  --theme-primary: #7b2cbf;
+  --theme-secondary: #9d4edd;
+  --theme-accent: #e0aaff;
+}
+
+.theme-midnight {
+  --theme-gradient: linear-gradient(135deg, #14213d 0%, #1d3557 50%, #457b9d 100%);
+  --theme-primary: #4361ee;
+  --theme-secondary: #3f37c9;
+  --theme-accent: #4cc9f0;
+}
+
+/* Apply theme colors */
+[class*="theme-"] body,
+[class*="theme-"] {
+  background: var(--theme-gradient);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+/* Pulse animation for loading states */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Bounce animation */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(-45deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-45deg); opacity: 1; }
+}
+
+.checkmark-animate {
+  animation: checkmark 0.5s ease-out forwards;
+}
+
+/* Touch-friendly styles for mobile */
+@media (max-width: 768px) {
+  .file-item {
+    padding: 16px;
+  }
+  
+  .file-item:active {
+    transform: scale(0.98);
+    background: rgba(102, 126, 234, 0.1);
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    padding: 14px 24px;
+    font-size: 0.9rem;
+    width: 100%;
+  }
+  
+  .card {
+    border-radius: 16px;
+    padding: 1rem;
+  }
+  
+  /* Larger touch targets */
+  button, 
+  input[type="checkbox"],
+  .icon-circle {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible styles for keyboard navigation */
+:focus-visible {
+  outline: 3px solid var(--theme-primary, #667eea);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--theme-primary, #667eea);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    border: 2px solid currentColor;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+  
+  button,
+  .drop-zone {
+    display: none !important;
+  }
+}
+
+/* Installation prompt styling (PWA) */
+.install-prompt {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 1000;
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(30, 30, 50, 0.95);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: toastIn 0.3s ease-out;
+}
+
+.toast.success {
+  border-left: 4px solid #52b788;
+}
+
+.toast.error {
+  border-left: 4px solid #f5576c;
+}
+
+.toast.info {
+  border-left: 4px solid #667eea;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

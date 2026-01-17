@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Moon, Sun, Check, X, Lock, Clock, CreditCard, Wifi } from 'lucide-react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Download, Sparkles, Trash2, FileStack, Zap, Shield, Folder, PartyPopper, Check, Lock, Clock, CreditCard, Wifi, Undo2, Redo2 } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import FileList from '@/components/FileList';
 import ProgressBar from '@/components/ProgressBar';
@@ -9,7 +9,14 @@ import OutputOptions from '@/components/OutputOptions';
 import AdvancedOptions, { MergeOptions, defaultMergeOptions } from '@/components/AdvancedOptions';
 import FileSearch from '@/components/FileSearch';
 import SplitPdf from '@/components/SplitPdf';
+import ThemeSelector from '@/components/ThemeSelector';
+import StatsDashboard from '@/components/StatsDashboard';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
+import BatchOperations from '@/components/BatchOperations';
 import { FileItem, MergeProgress, OutputFormat, mergeFiles } from '@/lib/pdfMerger';
+import { useAppStore, themes } from '@/lib/store';
+import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
+import { useConfetti } from '@/lib/useConfetti';
 
 export default function Home() {
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -19,9 +26,61 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('pdf');
   const [mergeOptions, setMergeOptions] = useState<MergeOptions>(defaultMergeOptions);
-  const [darkMode, setDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'pdf' | 'image' | 'text' | 'word'>('all');
+  
+  // Store state
+  const { 
+    theme, 
+    darkMode, 
+    setDarkMode,
+    addMergeHistory,
+    incrementMerge,
+    addAchievement,
+    setFiles: setStoreFiles,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    fileHistory,
+  } = useAppStore();
+  
+  const { celebrate } = useConfetti();
+
+  // Sync files with store for undo/redo
+  useEffect(() => {
+    if (files.length > 0) {
+      setStoreFiles(files);
+    }
+  }, [files, setStoreFiles]);
+
+  // Handle undo from store
+  const handleUndo = useCallback(() => {
+    if (canUndo()) {
+      undo();
+      setFiles(fileHistory.past[fileHistory.past.length - 1] || []);
+    }
+  }, [canUndo, undo, fileHistory.past]);
+
+  // Handle redo from store
+  const handleRedo = useCallback(() => {
+    if (canRedo()) {
+      redo();
+      setFiles(fileHistory.future[0] || []);
+    }
+  }, [canRedo, redo, fileHistory.future]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onMerge: () => !isMerging && selectedFileCount > 0 && handleMerge(),
+    onDownload: () => mergedBlob && handleDownload(),
+    onClear: () => handleClearAll(),
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onSelectAll: () => handleSelectAll(),
+    onDeselectAll: () => handleDeselectAll(),
+    onToggleDarkMode: () => setDarkMode(!darkMode),
+  });
 
   // Detect duplicates
   const duplicates = useMemo(() => {
@@ -118,6 +177,36 @@ export default function Home() {
     try {
       const blob = await mergeFiles(filesToMerge, setProgress, outputFormat, mergeOptions);
       setMergedBlob(blob);
+      
+      // Celebrate with confetti!
+      celebrate();
+      
+      // Track stats and history
+      incrementMerge(filesToMerge.length, filesToMerge.length * 5, blob.size);
+      addMergeHistory({
+        fileCount: filesToMerge.length,
+        fileNames: filesToMerge.map(f => f.name),
+        outputSize: blob.size,
+        settings: {
+          format: outputFormat,
+          pageNumbers: mergeOptions.addPageNumbers,
+          watermark: mergeOptions.watermarkText,
+        },
+      });
+      
+      // Check for achievements
+      const stats = useAppStore.getState().stats;
+      if (stats.totalMerges === 1) addAchievement('first_merge');
+      if (stats.totalMerges >= 10) addAchievement('ten_merges');
+      if (stats.totalMerges >= 50) addAchievement('fifty_merges');
+      if (stats.totalFilesProcessed >= 100) addAchievement('hundred_files');
+      if (stats.totalSizeProcessed >= 1024 * 1024 * 1024) addAchievement('gigabyte');
+      if (stats.streak >= 7) addAchievement('week_streak');
+      
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 6) addAchievement('night_owl');
+      if (hour >= 4 && hour < 6) addAchievement('early_bird');
+      
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred during merge';
       setError(message);
@@ -125,7 +214,7 @@ export default function Home() {
     } finally {
       setIsMerging(false);
     }
-  }, [files, outputFormat, mergeOptions]);
+  }, [files, outputFormat, mergeOptions, celebrate, incrementMerge, addMergeHistory, addAchievement]);
 
   const handleDownload = useCallback(() => {
     if (!mergedBlob) return;
@@ -147,16 +236,38 @@ export default function Home() {
   const hasFiles = files.length > 0;
 
   return (
-    <main className={`relative z-10 min-h-screen py-12 px-4 transition-colors ${darkMode ? 'dark-mode' : ''}`}>
+    <main 
+      className={`relative z-10 min-h-screen py-12 px-4 transition-colors theme-${theme} ${darkMode ? 'dark-mode' : ''}`}
+      style={{ background: themes[theme].gradient, backgroundSize: '400% 400%' }}
+    >
       <div className="max-w-3xl mx-auto">
-        {/* Dark Mode Toggle */}
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="fixed top-4 right-4 p-3 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors z-50"
-          aria-label="Toggle dark mode"
-        >
-          {darkMode ? <Sun size={20} className="text-yellow-300" /> : <Moon size={20} className="text-white" />}
-        </button>
+        {/* Fixed Controls */}
+        <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
+          <KeyboardShortcuts />
+          <ThemeSelector />
+        </div>
+
+        {/* Undo/Redo Controls */}
+        {hasFiles && (
+          <div className="fixed top-4 left-4 flex items-center gap-2 z-50">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo()}
+              className="p-2 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors disabled:opacity-30"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 size={18} className="text-white" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo()}
+              className="p-2 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors disabled:opacity-30"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 size={18} className="text-white" />
+            </button>
+          </div>
+        )}
 
         {/* Header */}
         <header className="text-center mb-12">
@@ -300,6 +411,28 @@ export default function Home() {
           </div>
           <div className="max-w-xl mx-auto">
             <SplitPdf />
+          </div>
+        </section>
+
+        {/* Batch Operations */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">⚡ Batch Operations</h2>
+            <p className="text-white/70">Compress multiple PDFs or convert images in bulk</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <BatchOperations />
+          </div>
+        </section>
+
+        {/* Stats Dashboard */}
+        <section className="mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">📊 Your Stats</h2>
+            <p className="text-white/70">Track your merging journey and unlock achievements</p>
+          </div>
+          <div className="max-w-xl mx-auto">
+            <StatsDashboard />
           </div>
         </section>
 
